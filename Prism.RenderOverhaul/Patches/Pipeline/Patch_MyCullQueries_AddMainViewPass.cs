@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using Prism.Render.Pipeline;
+using Prism.Render.Pipeline.Old;
 using VRage.Render.Scene;
 using VRage.Render11.Culling;
 using VRage.Render11.Resources;

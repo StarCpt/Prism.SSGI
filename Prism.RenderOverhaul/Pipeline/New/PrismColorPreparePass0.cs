@@ -6,7 +6,7 @@ using VRage.Render11.GeometryStage2.PreparePass;
 using VRageMath.PackedVector;
 using VRageRender;
 
-namespace Prism.Render.Pipeline;
+namespace Prism.Render.Pipeline.New;
 
 public struct PrismColorPreparePass0 : ICustomPreparePass0
 {
@@ -14,9 +14,9 @@ public struct PrismColorPreparePass0 : ICustomPreparePass0
     private struct InstanceDataElement
     {
         public RowMatrix WorldMatrix;
-        public RowMatrix PrevWorldMatrix;
         public HalfVector4 KeyColorDithering;
         public HalfVector4 ColorMultEmissivity;
+        public RowMatrix PrevWorldMatrix;
     }
 
     public readonly unsafe int ElementSize => sizeof(InstanceDataElement);

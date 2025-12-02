@@ -1,5 +1,4 @@
 ﻿using HarmonyLib;
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -7,14 +6,13 @@ using VRage.Render11.GeometryStage2.Model;
 using VRage.Render11.GeometryStage2.Model.Preprocess;
 using VRage.Utils;
 
-namespace Prism.Render.Pipeline;
+namespace Prism.Render.Pipeline.New;
 
 public class PrismPreprocessedParts : MyPreprocessedParts
 {
     [HarmonyPatch]
     static class Patches
     {
-#pragma warning disable IDE0051, IDE0002 // don't gray out "unused" patch methods
         [HarmonyPatch(typeof(MyLod), MethodType.Constructor)]
         [HarmonyPostfix]
         static void MyLod_ctor_Postfix(ref MyPreprocessedParts ___m_preprocessedParts)
@@ -59,7 +57,6 @@ public class PrismPreprocessedParts : MyPreprocessedParts
                 }
             }
         }
-#pragma warning restore IDE0051, IDE0002
     }
 
     public MyPreprocessedPart[] PrismGBufferParts;

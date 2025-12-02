@@ -1,5 +1,6 @@
 ﻿using Prism.Render.Patches;
 using SharpDX.Direct3D11;
+using System;
 using System.Collections.Generic;
 using VRage.Render11.GeometryStage2.Common;
 using VRage.Render11.GeometryStage2.Materials;
@@ -12,7 +13,7 @@ using VRage.Render11.Resources;
 using VRageRender;
 using VRageRender.Import;
 
-namespace Prism.Render.Pipeline;
+namespace Prism.Render.Pipeline.New;
 
 public class PrismGBufferRenderPass : MyGBufferRenderPass
 {
@@ -23,8 +24,8 @@ public class PrismGBufferRenderPass : MyGBufferRenderPass
     {
         base.BeginDraw(RC);
 
-        RC.VertexShader.SetConstantBuffer(6, Patch_MyRenderScheduler.PrismRenderConstants);
-        RC.PixelShader.SetConstantBuffer(6, Patch_MyRenderScheduler.PrismRenderConstants);
+        RC.VertexShader.SetConstantBuffer(4, Patch_MyRenderScheduler.PrismRenderConstants);
+        RC.PixelShader.SetConstantBuffer(4, Patch_MyRenderScheduler.PrismRenderConstants);
 
         _rtvs[0] = m_gbuffer.GbufferRtvs[0];
         _rtvs[1] = m_gbuffer.GbufferRtvs[1];
@@ -32,6 +33,7 @@ public class PrismGBufferRenderPass : MyGBufferRenderPass
         _rtvs[3] = VelocityBuffer.Rtv;
 
         RC.SetRtvs(m_gbuffer.DepthStencil.Dsv, _rtvs);
+        Array.Clear(_rtvs, 0, _rtvs.Length);
     }
 
     /// <summary>

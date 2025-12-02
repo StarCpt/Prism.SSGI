@@ -1,4 +1,4 @@
-﻿namespace Prism.Render.Pipeline;
+﻿namespace Prism.Render.Pipeline.New;
 
 public enum PrismRenderPassType
 {

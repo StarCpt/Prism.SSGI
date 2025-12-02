@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using VRageRender;
 
-namespace Prism.Render.Pipeline;
+namespace Prism.Render.Pipeline.New;
 
 public class MySimpleInstancePrevMatrixComponent : MyComponent
 {

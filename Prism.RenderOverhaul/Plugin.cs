@@ -1,6 +1,8 @@
 ﻿using HarmonyLib;
 using Prism.Render.Patches;
 using Prism.Render.Pipeline;
+using Prism.Render.Pipeline.New;
+using Prism.Render.Pipeline.Old;
 using System.IO;
 using System.Reflection;
 using VRage.Plugins;

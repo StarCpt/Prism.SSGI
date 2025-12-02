@@ -10,8 +10,11 @@ using VRage.Render11.GeometryStage2.Rendering;
 using VRageRender;
 using VRageRender.Import;
 
-namespace Prism.Render.Pipeline;
+namespace Prism.Render.Pipeline.New;
 
+/// <summary>
+/// Extends <see cref="MyShaderBundleManager"/>
+/// </summary>
 [HarmonyPatch(typeof(MyShaderBundleManager))]
 public static class PrismShaderBundleManager
 {
@@ -27,8 +30,8 @@ public static class PrismShaderBundleManager
                 new MyVertexInputComponent(MyVertexInputComponentType.TANGENT_SIGN_OF_BITANGENT, 1),
                 new MyVertexInputComponent(MyVertexInputComponentType.TEXCOORD0_H),
                 new MyVertexInputComponent(MyVertexInputComponentType.SIMPLE_INSTANCE, 2, MyVertexInputComponentFreq.PER_INSTANCE),
+                new MyVertexInputComponent(MyVertexInputComponentType.SIMPLE_INSTANCE_COLORING, 2, MyVertexInputComponentFreq.PER_INSTANCE),
                 new MyVertexInputComponent((MyVertexInputComponentType)PrismVertexInputComponentType.SIMPLE_INSTANCE_PREVMATRIX, 2, MyVertexInputComponentFreq.PER_INSTANCE),
-                new MyVertexInputComponent(MyVertexInputComponentType.SIMPLE_INSTANCE_COLORING, 2, MyVertexInputComponentFreq.PER_INSTANCE)
             ];
             return false;
         }
@@ -80,11 +83,11 @@ public static class PrismShaderBundleManager
         {
             if (type is MyShaderBundleManager.MyShaderType.SHADER_TYPE_VERTEX)
             {
-                return Path.Combine(Plugin.ShaderDirectory, @"Pipeline\vs.hlsl");
+                return Path.Combine(Plugin.ShaderDirectory, "Pipeline", "vs.hlsl");
             }
             else
             {
-                return Path.Combine(Plugin.ShaderDirectory, @"Pipeline\ps.hlsl");
+                return Path.Combine(Plugin.ShaderDirectory, "Pipeline", "ps.hlsl");
             }
         }
         else

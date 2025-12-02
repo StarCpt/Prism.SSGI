@@ -1,15 +1,27 @@
-#if defined(TECHNIQUE_MESH) || defined(TECHNIQUE_DECAL) || defined(TECHNIQUE_DECAL_NOPREMULT) || defined(TECHNIQUE_DECAL_CUTOUT)
+#include "material_defines.hlsli"
+
+#if defined(MATERIAL_STANDARD)
 #include <Geometry/Materials/Standard/Pixel.hlsl>
-#elif defined(TECHNIQUE_SHIELD_LIT)
-#include <Geometry/Materials/ShieldLit/Pixel.hlsl>
-#elif defined(TECHNIQUE_SHIELD)
-#include <Geometry/Materials/Shield/Pixel.hlsl>
-#elif defined(TECHNIQUE_GLASS)
-#include <Geometry/Materials/Glass/Pixel.hlsl>
-#elif defined(TECHNIQUE_HOLO)
-#include <Geometry/Materials/Holo/Pixel.hlsl>
-#elif defined(TECHNIQUE_ALPHA_MASKED) || defined(TECHNIQUE_ALPHA_MASKED_SINGLE_SIDED)
+#elif defined(MATERIAL_ALPHAMASKED)
 #include <Geometry/Materials/AlphaMasked/Pixel.hlsl>
+#elif defined(MATERIAL_ALPHAMASKEDARRAY)
+#include <Geometry/Materials/AlphaMaskedArray/Pixel.hlsl>
+#elif defined(MATERIAL_GLASS)
+#include <Geometry/Materials/Glass/Pixel.hlsl>
+#elif defined(MATERIAL_HOLO)
+#include <Geometry/Materials/Holo/Pixel.hlsl>
+#elif defined(MATERIAL_SHIELD)
+#include <Geometry/Materials/Shield/Pixel.hlsl>
+#elif defined(MATERIAL_SHIELDLIT)
+#include <Geometry/Materials/ShieldLit/Pixel.hlsl>
+#elif defined(MATERIAL_TEST)
+#include <Geometry/Materials/Test/Pixel.hlsl>
+#elif defined(MATERIAL_TRIPLANARDEBRIS)
+#include <Geometry/Materials/TriplanarDebris/Pixel.hlsl>
+#elif defined(MATERIAL_TRIPLANARMULTI)
+#include <Geometry/Materials/TriplanarMulti/Pixel.hlsl>
+#elif defined(MATERIAL_TRIPLANARSINGLE)
+#include <Geometry/Materials/TriplanarSingle/Pixel.hlsl>
 #endif
 
 struct PrismVertexStageOutput
@@ -18,7 +30,7 @@ struct PrismVertexStageOutput
     float4 PrevClipPos : PRISM_PREV_CLIP_POS;
 };
 
-cbuffer PrevViewProjConstants : register(b6)
+cbuffer PrevViewProjConstants : register(b4)
 {
     float4x4 PrevViewProj;
     float Farplane;

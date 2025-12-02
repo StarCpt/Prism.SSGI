@@ -1,9 +1,12 @@
-﻿using Prism.Common;
+﻿using HarmonyLib;
+using Prism.Common;
 using SharpDX.Direct3D11;
 using System;
+using System.Reflection;
 using VRage.Generics;
 using VRage.Render11.RenderContext;
 using VRage.Render11.Resources;
+using VRageRender;
 using Buffer = SharpDX.Direct3D11.Buffer;
 
 namespace Prism.Render;
@@ -65,6 +68,29 @@ public static class Extensions
             for (int i = 0; i < unusedCount; i++)
             {
                 pool.m_unused.Enqueue(pool.m_activator());
+            }
+        }
+    }
+
+    public static void ChangeObjectType<TOriginal, TNew>(this MyGenericObjectPool pool)
+        where TOriginal : class, IPooledObject
+        where TNew : TOriginal, new()
+    {
+        lock (pool) // this is how MyObjectPoolManager locks the pool
+        {
+            if (pool.m_active.Count > 0 || pool.m_marked.Count > 0)
+            {
+                throw new Exception("Cannot change the object type of a pool with allocations.");
+            }
+
+            // set the readonly field with reflection
+            FieldInfo field_m_storedType = AccessTools.Field(typeof(MyGenericObjectPool), nameof(MyGenericObjectPool.m_storedType));
+            field_m_storedType.SetValue(pool, typeof(TNew));
+
+            pool.m_unused.Clear();
+            for (int i = 0; i < pool.m_baseCapacity; i++)
+            {
+                pool.m_unused.Enqueue(new TNew());
             }
         }
     }

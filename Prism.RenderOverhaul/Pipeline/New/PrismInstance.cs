@@ -1,6 +1,6 @@
 ﻿using VRage.Render11.GeometryStage2.Instancing;
 
-namespace Prism.Render.Pipeline;
+namespace Prism.Render.Pipeline.New;
 
 public class PrismInstance : MyInstance
 {
