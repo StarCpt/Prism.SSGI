@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -25,13 +26,13 @@ public class PrismPreprocessedParts : MyPreprocessedParts
         [HarmonyTranspiler]
         static IEnumerable<CodeInstruction> MyLod_Create_Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            MethodInfo sourceMethod = AccessTools.Method(typeof(MyPreprocessedParts), nameof(MyPreprocessedParts.Init));
-            MethodInfo targetMethod = AccessTools.Method(typeof(PrismPreprocessedParts), nameof(Init));
+            MethodInfo target = AccessTools.Method(typeof(MyPreprocessedParts), nameof(MyPreprocessedParts.Init));
+            MethodInfo patch = AccessTools.Method(typeof(PrismPreprocessedParts), nameof(Init));
             foreach (CodeInstruction instruction in instructions)
             {
-                if (instruction.opcode == OpCodes.Callvirt && instruction.operand as MethodInfo == sourceMethod)
+                if (instruction.opcode == OpCodes.Callvirt && (instruction.operand as MethodInfo) == target)
                 {
-                    yield return instruction.Clone(targetMethod);
+                    yield return instruction.Clone(patch);
                 }
                 else
                 {
@@ -44,13 +45,13 @@ public class PrismPreprocessedParts : MyPreprocessedParts
         [HarmonyTranspiler]
         static IEnumerable<CodeInstruction> MyLod_AddInstanceMaterial_Transpiler(IEnumerable<CodeInstruction> instructions)
         {
-            MethodInfo sourceMethod = AccessTools.Method(typeof(MyPreprocessedParts), nameof(MyPreprocessedParts.AddInstanceMaterial));
-            MethodInfo targetMethod = AccessTools.Method(typeof(PrismPreprocessedParts), nameof(AddInstanceMaterial));
+            MethodInfo target = AccessTools.Method(typeof(MyPreprocessedParts), nameof(MyPreprocessedParts.AddInstanceMaterial));
+            MethodInfo patch = AccessTools.Method(typeof(PrismPreprocessedParts), nameof(AddInstanceMaterial));
             foreach (CodeInstruction instruction in instructions)
             {
-                if (instruction.opcode == OpCodes.Callvirt && instruction.operand as MethodInfo == sourceMethod)
+                if (instruction.opcode == OpCodes.Callvirt && (instruction.operand as MethodInfo) == target)
                 {
-                    yield return instruction.Clone(targetMethod);
+                    yield return instruction.Clone(patch);
                 }
                 else
                 {

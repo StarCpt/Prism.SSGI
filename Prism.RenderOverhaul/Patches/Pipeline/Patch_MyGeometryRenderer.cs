@@ -1,7 +1,7 @@
 ﻿using HarmonyLib;
+using Prism.Render.Pipeline;
 using System.Collections.Generic;
 using VRage.Library.Collections;
-using VRage.Render.Scene;
 using VRage.Render11.Culling;
 using VRage.Render11.GeometryStage2.Instancing;
 using VRage.Render11.GeometryStage2.PrepareGroupPass;
@@ -9,25 +9,13 @@ using VRage.Render11.GeometryStage2.PreparePass;
 using VRage.Render11.GeometryStage2.Rendering;
 using VRage.Render11.GeometryStage2.RenderPass;
 using VRage.Render11.GeometryStage2.StaticGroup;
-using VRage.Render11.Resources;
 using VRageRender;
 
-namespace Prism.Render.Pipeline;
+namespace Prism.Render.Patches.Pipeline;
 
 [HarmonyPatch]
-public static class MotionVectorGenerationPatches
+public static class Patch_MyGeometryRenderer
 {
-    [HarmonyPatch(typeof(MyCullQueries), nameof(MyCullQueries.AddMainViewPass))]
-    [HarmonyPrefix]
-    static bool MyCullQueries_AddMainViewPass_Prefix(MyCullQueries __instance, ref MyViewport viewport, MyGBuffer gbuffer)
-    {
-        MyCullQuery query = __instance.AddView(MyViewType.Main, 0, MyRender11.Environment.Matrices.ViewFrustumClippedD, MyRender11.Environment.Matrices.ViewFrustumClippedFarD, ref MyRender11.Environment.Matrices.ViewProjectionAt0, ref MyRender11.Environment.Matrices.CameraPosition, MyGBuffer.Main.ResolvedDepthStencil.DsvRo, MyGBuffer.Main.LBuffer);
-        PrismGBufferPass pass = __instance.AddRenderPass<PrismGBufferPass>(query, ref viewport, ref MyRender11.Environment.Matrices.Projection);
-        pass.GBuffer = gbuffer;
-        pass.VelocityBuffer = GBufferVelocity.Get(gbuffer);
-        return false;
-    }
-
     [HarmonyPatch(typeof(MyGeometryRenderer), nameof(MyGeometryRenderer.InitPasses))]
     [HarmonyPostfix]
     static void MyGeometryRenderer_InitPasses_Postfix(MyGeometryRenderer __instance, MyCullQueries cullQueries, IGBufferSrvStrategy srvStrategy, List<IPrepareWork> outPreparePasses, List<MyRenderPass> outRenderPasses)
@@ -72,12 +60,4 @@ public static class MotionVectorGenerationPatches
             }
         }
     }
-}
-
-public class PrismGBufferPass : MyRenderingPass
-{
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
-    public MyGBuffer GBuffer;
-    public IRtvTexture VelocityBuffer;
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
 }
