@@ -1,10 +1,15 @@
 ﻿using HarmonyLib;
+using Prism.Render.Config;
+using Prism.Render.Gui;
 using Prism.Render.Patches;
 using Prism.Render.Pipeline;
 using Prism.Render.Pipeline.New;
 using Prism.Render.Pipeline.Old;
+using Prism.Render.SSGI;
+using Sandbox.Graphics.GUI;
 using System.IO;
 using System.Reflection;
+using VRage.FileSystem;
 using VRage.Input;
 using VRage.Plugins;
 using VRage.Render11.Common;
@@ -20,15 +25,19 @@ namespace Prism.Render;
 public class Plugin : IPlugin
 {
     public static string? ShaderDirectory { get; private set; }
+    public static SSGIConfig SSGIConfig { get; private set; } = null!;
 
     public Plugin()
     {
 #if DEV
         ShaderDirectory = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Shaders");
 #endif
+        SSGIConfig = SSGIConfig.LoadOrCreate(Path.Combine(MyFileSystem.UserDataPath, "Storage", "Prism", "ssgi2.json"));
+
         RegisterTypes();
         GBufferVelocity.Init();
         Patch_MyRenderScheduler.Init();
+        SSGIPass.Init();
 
         new Harmony(GetType().FullName).PatchAll(Assembly.GetExecutingAssembly());
     }
@@ -54,16 +63,22 @@ public class Plugin : IPlugin
         ShaderDirectory = path;
     }
 
+    public void OpenConfigDialog() => MyGuiSandbox.AddScreen(new GuiScreenSSGIConfig(SSGIConfig));
+
     public void Update()
     {
+#if DEV
         if (MyInput.Static.IsAnyShiftKeyPressed() && MyInput.Static.IsNewKeyPressed(MyKeys.OemPipe))
         {
             MyRender11.EnqueueUpdate(() =>
             {
-                Patch_MyRenderScheduler.ReloadShaders();
-                MyMaterialShaders.Recompile();
+                SSGIPass.ReloadShaders();
+                //MyMaterialShaders.Recompile();
+                //MyVertexShaders.Recompile();
+                //MyPixelShaders.Recompile();
             });
         }
+#endif
     }
 
     public void Dispose()

@@ -94,4 +94,10 @@ public static class Extensions
             }
         }
     }
+
+    public static uint NextUInt(this Random rng)
+    {
+        return (uint)rng.Next(1 << 16) << 16 | (uint)rng.Next(1 << 16);
+    }
+
 }
