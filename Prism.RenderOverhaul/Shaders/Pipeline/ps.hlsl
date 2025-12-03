@@ -43,6 +43,7 @@ float4 ComputeVelocity(PrismVertexStageOutput input)
 {
     float4 vel;
     vel.xy = (input.CurrClipPos.xy / input.CurrClipPos.w) - (input.PrevClipPos.xy / input.PrevClipPos.w);
+    vel.xy = vel.xy * 0.5 * float2(1, -1);
     vel.z = (input.PrevClipPos.w - input.CurrClipPos.w) / Farplane;
     vel.w = 0;
     return vel;

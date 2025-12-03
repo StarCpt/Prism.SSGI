@@ -62,13 +62,13 @@ public class PrismRenderableProxy : MyRenderableProxy
         {
             bool matrixValid = __instance.m_worldMatrixIndex != -1; // current matrix is valid
             __state = matrixValid;
-            if (matrixValid)
-            {
-                for (int i = 0; i < ___RenderableProxies.Length; i++)
-                {
-                    ((PrismRenderableProxy)___RenderableProxies[i]).UpdatePrevMatrix();
-                }
-            }
+            //if (matrixValid)
+            //{
+            //    for (int i = 0; i < ___RenderableProxies.Length; i++)
+            //    {
+            //        ((PrismRenderableProxy)___RenderableProxies[i]).UpdatePrevMatrix();
+            //    }
+            //}
         }
 
         [HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
@@ -80,7 +80,8 @@ public class PrismRenderableProxy : MyRenderableProxy
             {
                 for (int i = 0; i < ___RenderableProxies.Length; i++)
                 {
-                    ((PrismRenderableProxy)___RenderableProxies[i]).UpdatePrevMatrix();
+                    ((PrismRenderableProxy)___RenderableProxies[i])._lastPrevMatrixUpdateFrame = -1;
+                    ((PrismRenderableProxy)___RenderableProxies[i]).UpdatePrevMatrix(0);
                 }
             }
         }
@@ -89,9 +90,15 @@ public class PrismRenderableProxy : MyRenderableProxy
     public MyMaterialShadersBundleId PrismGBufferShaders;
     public RowMatrix PrevMatrix; // float4x3
 
+    private long _lastPrevMatrixUpdateFrame = -1;
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void UpdatePrevMatrix()
+    public void UpdatePrevMatrix(long frame)
     {
-        PrevMatrix = Unsafe.As<Vector4, RowMatrix>(ref CommonObjectData.m_row0);
+        if (frame != _lastPrevMatrixUpdateFrame)
+        {
+            _lastPrevMatrixUpdateFrame = frame;
+            PrevMatrix = Unsafe.As<Vector4, RowMatrix>(ref CommonObjectData.m_row0);
+        }
     }
 }
