@@ -3,5 +3,8 @@ Texture2D<float> depths : register(t1);
 
 float4 ps(float4 position : SV_Position, float2 uv : TEXCOORD) : SV_Target
 {
-    return float4(abs(velocity[position.xy].xy) * 5, 0, depths[position.xy] != 0);
+    float3 color = velocity[position.xy].xyz;
+    color = isfinite(color) ? color : 0;
+    color = abs(color);
+    return float4(color.xyz * float3(5, 5, 1000), 0);
 }

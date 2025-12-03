@@ -5,6 +5,7 @@ using Prism.Render.Pipeline.New;
 using Prism.Render.Pipeline.Old;
 using System.IO;
 using System.Reflection;
+using VRage.Input;
 using VRage.Plugins;
 using VRage.Render11.Common;
 using VRage.Render11.GeometryStage2.Instancing;
@@ -39,6 +40,7 @@ public class Plugin : IPlugin
     private static void RegisterTypes()
     {
         MyManagers.Instances.m_instances.ChangeObjectType<MyInstance, PrismInstance>();
+        MyObjectPoolManager.m_poolsByType[typeof(MyRenderableProxy)].ChangeObjectType<MyRenderableProxy, PrismRenderableProxy>();
 
         MyObjectPoolManager.RegisterPool(typeof(PrismGBufferPass));
         MyObjectPoolManager.RegisterPool(typeof(PrismGBufferRenderPass));
@@ -54,6 +56,14 @@ public class Plugin : IPlugin
 
     public void Update()
     {
+        if (MyInput.Static.IsAnyShiftKeyPressed() && MyInput.Static.IsNewKeyPressed(MyKeys.OemPipe))
+        {
+            MyRender11.EnqueueUpdate(() =>
+            {
+                Patch_MyRenderScheduler.ReloadShaders();
+                MyMaterialShaders.Recompile();
+            });
+        }
     }
 
     public void Dispose()

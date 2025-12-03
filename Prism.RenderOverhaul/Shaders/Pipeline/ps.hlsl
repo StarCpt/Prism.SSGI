@@ -34,8 +34,10 @@ cbuffer PrevViewProjConstants : register(b4)
 {
     float4x4 PrevViewProj;
     float Farplane;
-    uint3 _pad1;
-}
+    uint _pad1;
+    uint _pad2;
+    uint _pad3;
+};
 
 float4 ComputeVelocity(PrismVertexStageOutput input)
 {

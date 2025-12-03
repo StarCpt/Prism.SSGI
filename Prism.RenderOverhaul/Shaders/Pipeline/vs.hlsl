@@ -34,8 +34,18 @@ cbuffer PrevViewProjConstants : register(b4)
 {
     float4x4 PrevViewProj;
     float Farplane;
-    uint3 _pad1;
-}
+    uint _pad1;
+    uint _pad2;
+    uint _pad3;
+};
+
+cbuffer Object2 : register(b7)
+{
+    ObjectConstants object_2; // unused, added to get proper field offsets for the following values
+    float4 obj_prev_matrix_row0;
+    float4 obj_prev_matrix_row1;
+    float4 obj_prev_matrix_row2;
+};
 
 void vs(uint vertexId : SV_VertexID, __VertexInput input, out VertexStageOutput output, out PrismVertexStageOutput output2)
 {
@@ -43,12 +53,18 @@ void vs(uint vertexId : SV_VertexID, __VertexInput input, out VertexStageOutput 
     
     output2.CurrClipPos = output.position;
     
+    const float4x4 invViewProj = frame_.Environment.inv_view_proj_matrix;
+    
 #if defined(USE_SIMPLE_INSTANCING) // new pipeline
     float4x4 prevInstanceMatrix = construct_matrix_43(input.prev_matrix_row0, input.prev_matrix_row1, input.prev_matrix_row2);
     float4 objPos = unpack_position_and_scale(input.position);
     float4 prevWorldPos = mul(objPos, prevInstanceMatrix);
     output2.PrevClipPos = mul(prevWorldPos, PrevViewProj);
 #else // old pipeline (TODO)
-    output2.PrevClipPos = output2.CurrClipPos;
+    VertexShaderInterface vertex = __prepare_interface(input, vertexId); // pretty inefficient, unsure if the compiler optimizes out unused code
+    float4x4 prevObjMatrix = construct_matrix_43(obj_prev_matrix_row0, obj_prev_matrix_row1, obj_prev_matrix_row2);
+    float4 objPos = vertex.position_scaled_untranslated;
+    float4 prevWorldPos = mul(objPos, prevObjMatrix);
+    output2.PrevClipPos = mul(prevWorldPos, PrevViewProj);
 #endif
 }

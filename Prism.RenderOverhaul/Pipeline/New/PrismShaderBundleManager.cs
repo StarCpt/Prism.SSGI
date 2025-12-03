@@ -143,7 +143,7 @@ public static class PrismShaderBundleManager
         }
     }
 
-    static readonly FileShaderCompiler _compiler = new("", MyShaderCompiler.ShadersPath);
+    public static readonly FileShaderCompiler _compiler = new("", MyShaderCompiler.ShadersPath);
 
     static byte[] CompileVertex(ref MyShaderCompilationInfo info, bool invalidateCache = false)
     {
