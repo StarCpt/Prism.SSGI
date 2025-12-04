@@ -9,7 +9,7 @@ static const float SIGMA_LUM = 4;
 
 float ComputeDepthWeight(const float centerDepth, const float neighborDepth, const float fwidth)
 {
-    // TODO: compute plane distance based on the center pixel's normal
+    // TODO: compute plane distance based on the center pixel's normal (see reblur slides)
     
     float depthDiff = abs(centerDepth - neighborDepth) /** FrameData.FarPlane*/;
     float eps_depth = 0.0001;

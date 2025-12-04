@@ -41,10 +41,13 @@ cbuffer PrevViewProjConstants : register(b4)
 
 float4 ComputeVelocity(PrismVertexStageOutput input)
 {
+    input.PrevClipPos.xyz /= input.PrevClipPos.w;
+    input.CurrClipPos.xyz /= input.CurrClipPos.w;
+    
     float4 vel;
-    vel.xy = (input.CurrClipPos.xy / input.CurrClipPos.w) - (input.PrevClipPos.xy / input.PrevClipPos.w);
+    vel.xy = input.CurrClipPos.xy - input.PrevClipPos.xy;
     vel.xy = vel.xy * 0.5 * float2(1, -1);
-    vel.z = (input.PrevClipPos.w - input.CurrClipPos.w) / Farplane;
+    vel.z = (compute_depth(input.CurrClipPos.z) - compute_depth(input.PrevClipPos.z)) / Farplane;
     vel.w = 0;
     return vel;
 }

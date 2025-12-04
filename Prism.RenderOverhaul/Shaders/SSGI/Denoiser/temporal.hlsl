@@ -34,10 +34,10 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     const float2 prevUV = uv - velocityTex[pixelPos].xy;
     
     float prevRawDepth = prevDepthTex.SampleLevel(PointSampler, prevUV, 0);
-    float reprojectedLinearDepth = ComputeWorldDepth(prevRawDepth) - (velocityTex[pixelPos].z * Farplane);
+    float reprojectedLinearDepth = ComputeWorldDepth(prevRawDepth) + (velocityTex[pixelPos].z * Farplane);
     
     float depthDiff = abs(ComputeWorldDepth(rawDepth) - reprojectedLinearDepth);
-    if (any(saturate(prevUV) != prevUV) || depthDiff > 0.5)
+    if (any(saturate(prevUV) != prevUV) || depthDiff > 0.1)
     {
         return float4(currentColor, 1);
     }
