@@ -1,9 +1,17 @@
 #include "common.hlsli"
 
-Texture2D<float4> History     : register(t5);
-Texture2D<float3> Source      : register(t6);
-Texture2D<float3> velocityTex : register(t7);
-Texture2D<float> prevDepthTex : register(t8);
+Texture2D<float4> History      : register(t5);
+Texture2D<float3> Source       : register(t6);
+Texture2D<float3> velocityTex  : register(t7);
+Texture2D<float> prevDepthTex  : register(t8);
+Texture2D<float4> prevGBuffer1 : register(t9);
+
+float3 ReprojectPrevViewNormal(float3 prevViewNormal)
+{
+    float3 prevWorldNormal = mul((float3x3) PrevViewMatrix, prevViewNormal);
+    float3x3 invView = transpose((float3x3) ViewMatrix);
+    return mul(invView, prevWorldNormal);
+}
 
 // result is not normalized!
 float3 compute_screen_ray(float2 uv)
@@ -15,8 +23,6 @@ float3 compute_screen_ray(float2 uv)
 }
 
 #define ENABLE_TEMPORAL 1
-
-static const float depthDiffThreshold = 0.05; // meters
 
 float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_Target
 {
@@ -46,6 +52,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     
     float depthZ = ComputeWorldDepth(rawDepth);
     float3 viewDir = -normalize(compute_screen_ray(uv));
+    float3 viewNormal = LoadViewNormal(pixelPos);
     
     float weightSum = 0;
     float4 historySum = 0;
@@ -56,12 +63,26 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
             continue;
         
         float prevRawDepth = prevDepthTex[offsetPos];
+        if (!IsForeground(prevRawDepth))
+            continue;
+        
         float reprojectedZ = ComputeWorldDepth(prevRawDepth) + (motion.z * Farplane);
         float depthDiff = abs(depthZ - reprojectedZ);
         
         float dot_ray_surface = clamp(dot(viewDir, LoadViewNormal(pixelPos)), 0.01, 1);
         
-        if (!IsForeground(prevRawDepth) || depthDiff > (depthDiffThreshold / dot_ray_surface))
+        // regarding comparing normals between frames:
+        // reprojection only takes camera rotation into account, but ignores the surface (block) rotation
+        // this is theoretically a problem but not in practice since blocks don't usually rotate 45 degrees in one tick
+        // something to keep in mind when adjusting the normal diff threshold.
+        float3 prevViewNormalReproj = ReprojectPrevViewNormal(UnpackNormal(prevGBuffer1[offsetPos].xy));
+        
+        static const float DEPTH_DIFF_THRESHOLD = 0.05; // meters
+        static const float NORMAL_DOT_DIFF_THRESHOLD = 0.5;
+        
+        bool depthRejected = depthDiff > (DEPTH_DIFF_THRESHOLD / dot_ray_surface);
+        bool normalRejected = dot(prevViewNormalReproj, viewNormal) < NORMAL_DOT_DIFF_THRESHOLD;
+        if (depthRejected || normalRejected)
             continue;
         
         weightSum += weights[i];

@@ -25,6 +25,7 @@ public static class SSGIPass
         public Matrix ViewMatrix;
         public Matrix ProjMatrix;
         public Matrix InvProjMatrix;
+        public Matrix PrevViewMatrix;
 
         public Vector3 SunDirection;
         public float Farplane;
@@ -32,6 +33,9 @@ public static class SSGIPass
         public Vector2 ScreenSize;
         public uint FrameIndex;
         public uint RandomSeed;
+
+        public Vector3 CameraDelta;
+        private uint _pad1;
 
         public GIConstants GI;
         public DenoiserConstants Denoiser;
@@ -72,6 +76,7 @@ public static class SSGIPass
     static IConstantBuffer _cbv = null!;
     static IRtvTexture _historyTexture = null!;
     static IRtvTexture _prevDepthTex = null!;
+    static IRtvTexture _prevGBuffer1 = null!;
     // Rtv0: Replace
     // Rtv1: Additive
     static IBlendState _blendReplaceNoAlpha0Additive1 = null!;
@@ -81,12 +86,14 @@ public static class SSGIPass
     static readonly float[] _spatialOffsets = { 0, 0.5f, 0.25f, 0.75f };
 
     static readonly Random _rand = new();
+    static Matrix _prevViewMatrix = Matrix.Identity;
 
     public static unsafe void Init()
     {
         _cbv = MyManagers.Buffers.CreateConstantBuffer("Prism.SSGI2.CbvConstants", MathHelper.Align(sizeof(Constants), 16), usage: ResourceUsage.Dynamic, isGlobal: true);
         _historyTexture = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvHistory", MyRender11.BackBufferResolution.X, MyRender11.BackBufferResolution.Y, Format.R16G16B16A16_Float);
         _prevDepthTex = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevDepth", MyRender11.BackBufferResolution.X, MyRender11.BackBufferResolution.Y, Format.R32_Float);
+        _prevGBuffer1 = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevGBuffer1", MyRender11.BackBufferResolution.X, MyRender11.BackBufferResolution.Y, MyGBuffer.Main.GBuffer1.Format);
 
         BlendStateDescription blendDesc = new()
         {
@@ -146,6 +153,7 @@ public static class SSGIPass
                 ViewMatrix = env.Matrices.ViewAt0,
                 ProjMatrix = env.Matrices.Projection,
                 InvProjMatrix = env.Matrices.InvProjection,
+                PrevViewMatrix = _prevViewMatrix,
 
                 SunDirection = -env.Data.EnvironmentLight.SunLightDirection,
                 Farplane = env.Matrices.FarClipping,
@@ -153,6 +161,8 @@ public static class SSGIPass
                 ScreenSize = MyRender11.ResolutionF,
                 FrameIndex = (uint)frame,
                 RandomSeed = _rand.NextUInt(),
+
+                CameraDelta = MyCommon.FrameConstantsData.Environment.CameraPositionDelta,
 
                 GI = new GIConstants
                 {
@@ -179,6 +189,8 @@ public static class SSGIPass
             };
             mapping.Write(in data);
         }
+
+        _prevViewMatrix = MyRender11.Environment.Matrices.ViewAt0;
     }
 
     public static void Run(MyRenderContext rc)
@@ -216,19 +228,19 @@ public static class SSGIPass
             // 6: noisy input
             // 7: velocity
             // 8: previous depth
-            rc.PixelShader.SetSrvs(5, _historyTexture, tempRtv, GBufferVelocity.Get(MyGBuffer.Main), _prevDepthTex);
+            // 9: previous gbuffer1 (normals + ao)
+            rc.PixelShader.SetSrvs(5, _historyTexture, tempRtv, GBufferVelocity.Get(MyGBuffer.Main), _prevDepthTex, _prevGBuffer1);
             rc.SetRtv(tempRtv2);
             MyScreenPass.DrawFullscreenQuad(rc);
             rc.SetRtvNull();
-            rc.PixelShader.SetSrvs(5, null, null, null, null); // don't remove this
+            rc.PixelShader.SetSrvs(5, null, null, null, null, null); // don't remove this
         }
 
         // blur pass
         {
             rc.SetBlendState(_blendReplaceNoAlpha0Additive1);
             rc.PixelShader.Set(_psBlur);
-            rc.PixelShader.SetSrv(0, MyGBuffer.Main.GBuffer0);
-            rc.PixelShader.SetSrv(2, MyGBuffer.Main.GBuffer2);
+            rc.PixelShader.SetSrvs(0, MyGBuffer.Main.GBuffer0, MyGBuffer.Main.GBuffer1, MyGBuffer.Main.GBuffer2);
             rc.PixelShader.SetSrv(5, tempRtv2);
             rc.SetRtvs([_historyTexture.Rtv, MyGBuffer.Main.LBuffer.Rtv]);
             MyScreenPass.DrawFullscreenQuad(rc);
@@ -237,6 +249,8 @@ public static class SSGIPass
 
         tempRtv.Release();
         tempRtv2.Release();
+
+        rc.CopyResource(MyGBuffer.Main.GBuffer1, _prevGBuffer1);
 
         // note: MyCopyToRT will fuck you over!
         CopyReplace(rc, MyGBuffer.Main.DepthStencil.SrvDepth, _prevDepthTex);

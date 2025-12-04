@@ -1,17 +1,42 @@
 #ifndef SSGI2_BINDINGS
 #define SSGI2_BINDINGS
 
-#include "definitions.hlsli"
-
 SamplerState DefaultSampler	: register(s0);
 SamplerState PointSampler   : register(s1);
 SamplerState LinearSampler  : register(s2);
+
+struct GIConstants
+{
+    float HalfProjScale;
+    float TemporalOffsets;
+    float TemporalDirections;
+    bool JitterSamples;
+
+    float GIIntensity;
+    float AOIntensity;
+    int SliceCount;
+    uint StepCount; // steps per slice direction. a slice has 2*StepCount steps.
+    
+    float Radius; // radius in world space units (meters)
+    float ExpFactor;
+    float Thickness; // meters
+    uint _pad1;
+};
+
+struct DenoiserConstants
+{
+    float MaxHistory;
+    float BlurRadius;
+    uint _pad1;
+    uint _pad2;
+};
 
 cbuffer Constants : register(b0)
 {
     float4x4 ViewMatrix;
     float4x4 ProjMatrix;
     float4x4 InvProjMatrix;
+    float4x4 PrevViewMatrix;
     
     float3 SunDirection;
     float Farplane;
@@ -19,6 +44,9 @@ cbuffer Constants : register(b0)
     float2 ScreenSize;
     uint FrameIndex;
     uint RandomSeed;
+    
+    float3 CameraDelta;
+    uint _pad1;
     
     GIConstants GI;
     DenoiserConstants Denoiser;
@@ -41,12 +69,17 @@ Texture2D<float4> LBuffer : register(t3); // R11G11B10 float (by default)
 // nonlinear depth 1 -> 0
 Texture2D<float> DepthBuffer : register(t4); // if HQ D32 float, else D24 unorm
 
-float3 LoadViewNormal(uint2 pixel)
+float3 UnpackNormal(float2 packed)
 {
-    float2 fenc = mad(GBuffer1[pixel].xy, 4, -2);
+    float2 fenc = mad(packed, 4, -2);
     float f = dot(fenc, fenc);
     float g = sqrt(1 - f / 4);
     return float3(fenc * g, 1 - f / 2);
+}
+
+float3 LoadViewNormal(uint2 pixel)
+{
+    return UnpackNormal(GBuffer1[pixel].xy);
 }
 
  // nonlinear depth -> positive depth in meters
