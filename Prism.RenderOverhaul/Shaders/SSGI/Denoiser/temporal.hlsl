@@ -54,6 +54,8 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     float3 viewDir = -normalize(compute_screen_ray(uv));
     float3 viewNormal = LoadViewNormal(pixelPos);
     
+    const float dot_ray_surface_inv = rcp(clamp(dot(viewDir, viewNormal), 0.01, 1));
+    
     float weightSum = 0;
     float4 historySum = 0;
     for (uint i = 0; i < 4; i++)
@@ -69,8 +71,6 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
         float reprojectedZ = ComputeWorldDepth(prevRawDepth) + (motion.z * Farplane);
         float depthDiff = abs(depthZ - reprojectedZ);
         
-        float dot_ray_surface = clamp(dot(viewDir, LoadViewNormal(pixelPos)), 0.01, 1);
-        
         // regarding comparing normals between frames:
         // reprojection only takes camera rotation into account, but ignores the surface (block) rotation
         // this is theoretically a problem but not in practice since blocks don't usually rotate 45 degrees in one tick
@@ -80,7 +80,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
         static const float DEPTH_DIFF_THRESHOLD = 0.05; // meters
         static const float NORMAL_DOT_DIFF_THRESHOLD = 0.5;
         
-        bool depthRejected = depthDiff > (DEPTH_DIFF_THRESHOLD / dot_ray_surface);
+        bool depthRejected = depthDiff > (DEPTH_DIFF_THRESHOLD * dot_ray_surface_inv);
         bool normalRejected = dot(prevViewNormalReproj, viewNormal) < NORMAL_DOT_DIFF_THRESHOLD;
         if (depthRejected || normalRejected)
             continue;
@@ -91,8 +91,8 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     
     // xyz = color, w = history
     float4 history = weightSum > 0 ? (historySum / weightSum) : 0;
-    history.w = max(history.w, 0);
-    history.w = min(history.w + 1.0, Denoiser.MaxHistory); // cap accumulation factor
+    history.w = clamp(history.w, 0, Denoiser.MaxHistory);
+    history.w += 1.0;
     
     float3 currentColor = Source[pixelPos].xyz;
     
