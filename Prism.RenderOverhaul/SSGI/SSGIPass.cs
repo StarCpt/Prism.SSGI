@@ -205,6 +205,7 @@ public static class SSGIPass
         rc.SetDepthStencilState(MyDepthStencilStateManager.IgnoreDepthStencil);
         rc.PixelShader.SetSamplers(0, MySamplerStateManager.StandardSamplers);
         rc.PixelShader.SetConstantBuffer(0, _cbv);
+        rc.PixelShader.SetSrvs(0, MyGBuffer.Main.GBuffer0, MyGBuffer.Main.GBuffer1, MyGBuffer.Main.GBuffer2, MyGBuffer.Main.LBuffer, MyGBuffer.Main.DepthStencil.SrvDepth);
 
         IBorrowedRtvTexture tempRtv = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtv1", Format.R16G16B16A16_Float);
 
@@ -212,7 +213,6 @@ public static class SSGIPass
         {
             rc.SetBlendState(null);
             rc.PixelShader.Set(_ps);
-            rc.PixelShader.SetSrvs(0, MyGBuffer.Main.GBuffer0, MyGBuffer.Main.GBuffer1, MyGBuffer.Main.GBuffer2, MyGBuffer.Main.LBuffer, MyGBuffer.Main.DepthStencil.SrvDepth);
             rc.SetRtv(tempRtv);
             MyScreenPass.DrawFullscreenQuad(rc);
             rc.SetRtvNull();
@@ -233,18 +233,16 @@ public static class SSGIPass
             rc.SetRtv(tempRtv2);
             MyScreenPass.DrawFullscreenQuad(rc);
             rc.SetRtvNull();
-            rc.PixelShader.SetSrvs(5, null, null, null, null, null); // don't remove this
         }
 
         // blur pass
         {
             rc.SetBlendState(_blendReplaceNoAlpha0Additive1);
             rc.PixelShader.Set(_psBlur);
-            rc.PixelShader.SetSrvs(0, MyGBuffer.Main.GBuffer0, MyGBuffer.Main.GBuffer1, MyGBuffer.Main.GBuffer2);
             rc.PixelShader.SetSrv(5, tempRtv2);
             rc.SetRtvs([_historyTexture.Rtv, MyGBuffer.Main.LBuffer.Rtv]);
             MyScreenPass.DrawFullscreenQuad(rc);
-            rc.SetRtvNull();
+            //rc.SetRtvNull(); // does not need to be finished immediately
         }
 
         tempRtv.Release();
