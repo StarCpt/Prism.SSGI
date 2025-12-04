@@ -1,7 +1,6 @@
 #include "bindings.hlsli"
 #include "common.hlsli"
 
-
 // result is not normalized!
 float3 compute_screen_ray(float2 uv)
 {
@@ -133,7 +132,6 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     // compute average
     light /= float(GI.SliceCount);
     light *= GI.GIIntensity;
-    //light *= 10;
     
     return float4(light, ambientOcclusion);
 }

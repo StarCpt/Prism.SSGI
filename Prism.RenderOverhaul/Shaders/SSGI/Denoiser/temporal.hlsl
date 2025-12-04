@@ -1,51 +1,80 @@
 #include "common.hlsli"
 
-Texture2D<float4> History : register(t5);
-Texture2D<float3> Source : register(t6);
+Texture2D<float4> History     : register(t5);
+Texture2D<float3> Source      : register(t6);
 Texture2D<float3> velocityTex : register(t7);
-Texture2D<float3> prevDepthTex : register(t8);
+Texture2D<float> prevDepthTex : register(t8);
 
-void LoadHistory(float2 uv, out float3 color, out float weight)
+// result is not normalized!
+float3 compute_screen_ray(float2 uv)
 {
-    // TODO: bilinear with rejection
-    float4 history = History.SampleLevel(PointSampler, uv, 0);
-    color = history.xyz;
-    weight = history.w;
-    weight = clamp(weight, 0, Denoiser.MaxHistory);
-    weight += 1.0;
+    const float ray_x = 1. / ProjMatrix._11;
+    const float ray_y = 1. / ProjMatrix._22;
+    float3 projOffset = float3(ProjMatrix._31 / ProjMatrix._11, ProjMatrix._32 / ProjMatrix._22, 0);
+    return projOffset + float3(lerp(-ray_x, ray_x, uv.x), -lerp(-ray_y, ray_y, uv.y), -1.0);
 }
+
+#define ENABLE_TEMPORAL 1
+
+static const float depthDiffThreshold = 0.05; // meters
 
 float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_Target
 {
-    //return float4(Source[position.xy].xyz, 1);
 #if VISUALIZE_MOTION
     return float4(abs(velocityTex[position.xy].xy) * 1000, 0, 1);
 #endif
     
+#if !ENABLE_TEMPORAL
+    return float4(Source[position.xy].xyz, 1);
+#endif
+    
     const uint2 pixelPos = position.xy;
-    const float3 currentColor = Source[pixelPos].xyz;
-    
     const float rawDepth = DepthBuffer[pixelPos];
-    if (rawDepth == 0) // not foreground
+    if (!IsForeground(rawDepth))
     {
-        return float4(currentColor, 0);
-    }
-
-    const float2 prevUV = uv - velocityTex[pixelPos].xy;
-    
-    float prevRawDepth = prevDepthTex.SampleLevel(PointSampler, prevUV, 0);
-    float reprojectedLinearDepth = ComputeWorldDepth(prevRawDepth) + (velocityTex[pixelPos].z * Farplane);
-    
-    float depthDiff = abs(ComputeWorldDepth(rawDepth) - reprojectedLinearDepth);
-    if (any(saturate(prevUV) != prevUV) || depthDiff > 0.1)
-    {
-        return float4(currentColor, 1);
+        return float4(Source[pixelPos].xyz, 0);
     }
     
-    float3 historyColor;
-    float historyLength;
-    LoadHistory(prevUV, historyColor, historyLength);
+    const float3 motion = velocityTex[pixelPos];
+    const float2 prevPosF = pixelPos - motion.xy * ScreenSize;
     
-    float3 result = lerp(historyColor, currentColor, 1.0 / historyLength);
-    return float4(result, historyLength);
+    float2 xyf = frac(prevPosF);
+    
+    // bilinear offsets and weights
+    const int2 offsets[4] = { int2(0, 0), int2(1, 0), int2(0, 1), int2(1, 1) };
+    const float weights[4] = { (1 - xyf.x) * (1 - xyf.y), xyf.x * (1 - xyf.y), (1 - xyf.x) * xyf.y, xyf.x * xyf.y };
+    
+    float depthZ = ComputeWorldDepth(rawDepth);
+    float3 viewDir = -normalize(compute_screen_ray(uv));
+    
+    float weightSum = 0;
+    float4 historySum = 0;
+    for (uint i = 0; i < 4; i++)
+    {
+        int2 offsetPos = prevPosF + offsets[i];
+        if (any(offsetPos < 0 || offsetPos >= ScreenSize))
+            continue;
+        
+        float prevRawDepth = prevDepthTex[offsetPos];
+        float reprojectedZ = ComputeWorldDepth(prevRawDepth) + (motion.z * Farplane);
+        float depthDiff = abs(depthZ - reprojectedZ);
+        
+        float dot_ray_surface = clamp(dot(viewDir, LoadViewNormal(pixelPos)), 0.01, 1);
+        
+        if (!IsForeground(prevRawDepth) || depthDiff > (depthDiffThreshold / dot_ray_surface))
+            continue;
+        
+        weightSum += weights[i];
+        historySum += weights[i] * History[offsetPos];
+    }
+    
+    // xyz = color, w = history
+    float4 history = weightSum > 0 ? (historySum / weightSum) : 0;
+    history.w = max(history.w, 0);
+    history.w = min(history.w + 1.0, Denoiser.MaxHistory); // cap accumulation factor
+    
+    float3 currentColor = Source[pixelPos].xyz;
+    
+    float3 finalColor = lerp(history.xyz, currentColor, 1.0 / history.w);
+    return float4(finalColor, history.w);
 }

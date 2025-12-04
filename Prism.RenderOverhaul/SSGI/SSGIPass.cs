@@ -71,7 +71,7 @@ public static class SSGIPass
     static PixelShader? _psBlur;
     static IConstantBuffer _cbv = null!;
     static IRtvTexture _historyTexture = null!;
-    public static IRtvTexture _prevDepthTex = null!;
+    static IRtvTexture _prevDepthTex = null!;
     // Rtv0: Replace
     // Rtv1: Additive
     static IBlendState _blendReplaceNoAlpha0Additive1 = null!;

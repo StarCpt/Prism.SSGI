@@ -38,12 +38,33 @@ float2 Rotate(float2 vec, float sinTheta, float cosTheta)
         vec.x * sinTheta + vec.y * cosTheta);
 }
 
-float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out float4 blendedColor : SV_Target1) : SV_Target0
+#define ENABLE_BLUR 1
+#define BLEND_WITH_ALBEDO 1
+#define BLEND_WITH_METALNESS 1
+#define VISUALIZE_HISTORY_LENGTH 0 // debug
+
+float3 ApplyBlending(const uint2 pixelPos, float3 color)
+{
+#if BLEND_WITH_ALBEDO
+    color *= GBuffer0[pixelPos].xyz;
+#endif
+#if BLEND_WITH_METALNESS
+    color *= (1 - GBuffer2[pixelPos].x);
+#endif
+    return color;
+}
+
+float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out float3 blendedColor : SV_Target1) : SV_Target0
 {
     const int2 pixelPos = position.xy;
     
-#if VISUALIZE_MOTION
-    blendedColor = float4(Source[pixelPos].xyz * GBuffer0[pixelPos].xyz * (1 - GBuffer2[pixelPos].x), 1);
+#if VISUALIZE_HISTORY_LENGTH
+    blendedColor = float4(Source[pixelPos].www / Denoiser.MaxHistory * 50, 1);
+    return Source[pixelPos];
+#endif // VISUALIZE_HISTORY_LENGTH
+    
+#if VISUALIZE_MOTION || !ENABLE_BLUR
+    blendedColor = ApplyBlending(pixelPos, Source[pixelPos].xyz);
     return Source[pixelPos];
 #endif
     
@@ -84,19 +105,10 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
         
         totalWeight += weight;
         totalColor += Source[pos].xyz * weight;
-        
-        //if (weight < 0.001)
-        //{
-        //    radius *= 0.5;
-        //}
-        //else
-        //{
-        //    radius * 1.5;
-        //}
     }
     
     float3 finalColor = totalWeight > 0 ? (totalColor / totalWeight) : 0;
     
-    blendedColor = float4(finalColor.xyz * GBuffer0[pixelPos].xyz * (1 - GBuffer2[pixelPos].x), 1);
+    blendedColor = ApplyBlending(pixelPos, finalColor.xyz);
     return float4(finalColor.xyz, Source[pixelPos].w);
 }
