@@ -1,6 +1,7 @@
 ﻿using Prism.Common;
 using Prism.Render.Pipeline;
 using Sandbox;
+using Sandbox.Engine.Utils;
 using Sandbox.ModAPI;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
@@ -57,7 +58,7 @@ public static class SSGIPass
         public float Radius;
         public float ExpFactor;
         public float Thickness;
-        private uint _pad1;
+        public float MipLevel;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -74,6 +75,7 @@ public static class SSGIPass
     static PixelShader? _psTemporal;
     static PixelShader? _psBlur;
     static IConstantBuffer _cbv = null!;
+    static IRtvTexture _lbufferCopy = null!;
     static IRtvTexture _historyTexture = null!;
     static IRtvTexture _prevDepthTex = null!;
     static IRtvTexture _prevGBuffer1 = null!;
@@ -91,9 +93,11 @@ public static class SSGIPass
     public static unsafe void Init()
     {
         _cbv = MyManagers.Buffers.CreateConstantBuffer("Prism.SSGI2.CbvConstants", MathHelper.Align(sizeof(Constants), 16), usage: ResourceUsage.Dynamic, isGlobal: true);
-        _historyTexture = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvHistory", MyRender11.BackBufferResolution.X, MyRender11.BackBufferResolution.Y, Format.R16G16B16A16_Float);
-        _prevDepthTex = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevDepth", MyRender11.BackBufferResolution.X, MyRender11.BackBufferResolution.Y, Format.R32_Float);
-        _prevGBuffer1 = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevGBuffer1", MyRender11.BackBufferResolution.X, MyRender11.BackBufferResolution.Y, MyGBuffer.Main.GBuffer1.Format);
+        Vector2I res = MyRender11.BackBufferResolution;
+        _lbufferCopy    = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvLBufferCopy",  res.X, res.Y, Format.R16G16B16A16_Float, mipLevels: 5, optionFlags: ResourceOptionFlags.GenerateMipMaps);
+        _historyTexture = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvHistory",      res.X, res.Y, Format.R16G16B16A16_Float);
+        _prevDepthTex   = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevDepth",    res.X, res.Y, Format.R32_Float);
+        _prevGBuffer1   = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevGBuffer1", res.X, res.Y, MyGBuffer.Main.GBuffer1.Format);
 
         BlendStateDescription blendDesc = new()
         {
@@ -169,7 +173,7 @@ public static class SSGIPass
                     HalfProjScale = (float)(MyRender11.ResolutionF.Y / (Math.Tan(env.Matrices.FovH * 0.5) * 2) * 0.5),
                     //TemporalOffsets = _spatialOffsets[(frame / 6) % 4],
                     TemporalOffsets = _spatialOffsets[frame % 4],
-                    //TemporalDirections = _temporalRotations[frame % 6] / 360f, // can help with low sample count scenarios but introduces unwanted flickering
+                    TemporalDirections = _temporalRotations[frame % 6] / 360f, // can help with low sample count scenarios but introduces unwanted flickering
                     JitterSamples = true,
 
                     GIIntensity = MathHelper.Clamp(config.GIIntensity * 2f, 0, 1000),
@@ -180,6 +184,7 @@ public static class SSGIPass
                     Radius = MathHelper.Clamp(config.Radius, 0, 1000),
                     ExpFactor = MathHelper.Clamp(config.ExpFactor, 0, 1000),
                     Thickness = MathHelper.Clamp(config.Thickness, 0, 1000),
+                    MipLevel = MathHelper.Clamp(config.InputMipLevel, 0, 1000),
                 },
 
                 Denoiser = new DenoiserConstants
@@ -201,12 +206,25 @@ public static class SSGIPass
 
         UpdateCbv(rc);
 
+        ISrvTexture lightBuffer;
+        if (Plugin.SSGIConfig.InputMipLevel > 0)
+        {
+            CopyReplace(rc, MyGBuffer.Main.LBuffer, _lbufferCopy);
+            rc.SetRtvNull();
+            rc.GenerateMips(_lbufferCopy);
+            lightBuffer = _lbufferCopy;
+        }
+        else
+        {
+            lightBuffer = MyGBuffer.Main.LBuffer;
+        }
+
         // common bindings
         rc.SetRasterizerState(MyRasterizerStateManager.NocullRasterizerState);
         rc.SetDepthStencilState(MyDepthStencilStateManager.IgnoreDepthStencil);
         rc.PixelShader.SetSamplers(0, MySamplerStateManager.StandardSamplers);
         rc.PixelShader.SetConstantBuffer(0, _cbv);
-        rc.PixelShader.SetSrvs(0, MyGBuffer.Main.GBuffer0, MyGBuffer.Main.GBuffer1, MyGBuffer.Main.GBuffer2, MyGBuffer.Main.LBuffer, MyGBuffer.Main.DepthStencil.SrvDepth);
+        rc.PixelShader.SetSrvs(0, MyGBuffer.Main.GBuffer0, MyGBuffer.Main.GBuffer1, MyGBuffer.Main.GBuffer2, lightBuffer, MyGBuffer.Main.DepthStencil.SrvDepth);
 
         IBorrowedRtvTexture tempRtv = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtv1", Format.R16G16B16A16_Float);
 

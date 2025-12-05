@@ -57,7 +57,7 @@ float3 HorizonAngle(float3 viewPosition, float3 viewDir, float3 viewNormal, floa
         
         if (newlyOccludedSectors > 0)
         {
-            float3 rayHitColor = LBuffer.SampleLevel(PointSampler, rayPosUV, 0);
+            float3 rayHitColor = LBuffer.SampleLevel(PointSampler, rayPosUV, GI.MipLevel);
             
             // currently just lambertian diffuse, can apply different brdf in the future
             float cosineTerm = saturate(dot(viewNormal, rayHitDir));
@@ -98,7 +98,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     for (int slice = 0; slice < GI.SliceCount; slice++)
     {
         // 0 to 180 degrees, each slice covers the 180* 'opposite' direction
-        float angleInRadians = PI * (float(slice + noiseDirection + GI.TemporalDirections) / float(GI.SliceCount));
+        float angleInRadians = PI * (float(slice + noiseDirection /*+ GI.TemporalDirections*/) / float(GI.SliceCount));
         
         float2 rayDir; // screenspace slice tangent
         sincos(angleInRadians, rayDir.y, rayDir.x);

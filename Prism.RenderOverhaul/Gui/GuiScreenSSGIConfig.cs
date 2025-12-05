@@ -127,12 +127,14 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
         {
             grid.AddLabel(column, row, attribute.Name ?? prop.Name, HorizontalAlignment.Left);
             var control = grid.AddFloatSlider(column + 1, row, attribute.Enabled, (float)prop.GetValue(_config), floatProp.Min, floatProp.Max, floatProp.DefaultValue, true, HorizontalAlignment.Left);
+            control.SetToolTip(floatProp.ToolTip);
             return new PropertyBinding<MyGuiControlSlider, float>(control, _config, prop, slider => slider.Value);
         }
         else if (prop.PropertyType == typeof(int) && prop.GetCustomAttribute<IntConfigPropertyAttribute>() is IntConfigPropertyAttribute intProp)
         {
             grid.AddLabel(column, row, attribute.Name ?? prop.Name, HorizontalAlignment.Left);
             var control = grid.AddIntegerSlider(column + 1, row, attribute.Enabled, (int)prop.GetValue(_config), intProp.Min, intProp.Max, intProp.DefaultValue, true, HorizontalAlignment.Left);
+            control.SetToolTip(intProp.ToolTip);
             return new PropertyBinding<MyGuiControlSlider, int>(control, _config, prop, slider => (int)slider.Value);
         }
         else

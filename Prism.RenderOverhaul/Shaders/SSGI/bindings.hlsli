@@ -20,7 +20,7 @@ struct GIConstants
     float Radius; // radius in world space units (meters)
     float ExpFactor;
     float Thickness; // meters
-    uint _pad1;
+    float MipLevel;
 };
 
 struct DenoiserConstants

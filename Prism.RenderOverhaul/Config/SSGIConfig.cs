@@ -10,8 +10,11 @@ public class SSGIConfig
     [ConfigProperty("Enable SSGI")]
     public bool Enabled { get; set; } = true;
 
-    [FloatConfigProperty("GI Intensity", 0, 10, 5)]
+    [FloatConfigProperty("GI Intensity", 0, 10, 5, toolTip: "Global illumination light multiplier.")]
     public float GIIntensity { get; set; } = 5;
+
+    [IntConfigProperty("Input Prefiltering", 0, 4, 3, toolTip: "More prefiltering improves stability but causes light leaking.")]
+    public int InputMipLevel { get; set; } = 0;
 
     [IntConfigProperty("Slices", 1, 32, 2)]
     public int SliceCount { get; set; } = 2;
@@ -19,7 +22,7 @@ public class SSGIConfig
     [IntConfigProperty("Steps", 1, 64, 16)]
     public int StepCount { get; set; } = 16;
 
-    [FloatConfigProperty("Radius", 0, 15, 7.5f)]
+    [FloatConfigProperty("Radius", 0, 15, 7.5f, toolTip: "Approximate range in meters.")]
     public float Radius { get; set; } = 10;
 
     [FloatConfigProperty("ExpFactor", 1, 2, 1.5f)]
