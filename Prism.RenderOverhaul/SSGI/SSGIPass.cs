@@ -172,7 +172,7 @@ public static class SSGIPass
                     //TemporalDirections = _temporalRotations[frame % 6] / 360f, // can help with low sample count scenarios but introduces unwanted flickering
                     JitterSamples = true,
 
-                    GIIntensity = MathHelper.Clamp(config.GIIntensity * 2.5f, 0, 1000),
+                    GIIntensity = MathHelper.Clamp(config.GIIntensity * 2f, 0, 1000),
                     AOIntensity = 1.5f,
                     SliceCount = MathHelper.Clamp(config.SliceCount, 0, 1000),
                     StepCount = (uint)MathHelper.Clamp(config.StepCount, 0, 1000),

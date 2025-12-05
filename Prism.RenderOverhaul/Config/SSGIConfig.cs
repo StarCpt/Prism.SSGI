@@ -10,8 +10,8 @@ public class SSGIConfig
     [ConfigProperty("Enable SSGI")]
     public bool Enabled { get; set; } = true;
 
-    [FloatConfigProperty("GI Intensity", 0, 10, 2)]
-    public float GIIntensity { get; set; } = 2;
+    [FloatConfigProperty("GI Intensity", 0, 10, 5)]
+    public float GIIntensity { get; set; } = 5;
 
     [IntConfigProperty("Slices", 1, 32, 2)]
     public int SliceCount { get; set; } = 2;
@@ -19,7 +19,7 @@ public class SSGIConfig
     [IntConfigProperty("Steps", 1, 64, 16)]
     public int StepCount { get; set; } = 16;
 
-    [FloatConfigProperty("Radius", 0, 20, 10)]
+    [FloatConfigProperty("Radius", 0, 15, 7.5f)]
     public float Radius { get; set; } = 10;
 
     [FloatConfigProperty("ExpFactor", 1, 2, 1.5f)]
