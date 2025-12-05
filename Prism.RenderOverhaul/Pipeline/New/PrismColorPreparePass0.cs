@@ -42,9 +42,6 @@ public struct PrismColorPreparePass0 : ICustomPreparePass0
             KeyColorDithering = new HalfVector4(instance.KeyColor.PackedValue | (ulong)HalfUtils.Pack(stateData) << 48),
             ColorMultEmissivity = instanceMaterialOffsetInData != -1 ? instance.GetInstanceMaterialPackedColorMultEmissivity(instanceMaterialOffsetInData) : MyInstanceMaterial.Default.PackedColorMultEmissivity,
         };
-        // TODO: ensure this is only called once per frame
-        // currently there's only 1 gbuffer pass per frame but who knows if it'll change in the future
-        ((PrismInstance)instance).UpdatePrevMatrix();
     }
 
     public readonly List<int> GetInstanceMaterialOffsetsForThePass(MyLod lod) => lod.GetInstanceMaterialOffsets();
