@@ -82,8 +82,8 @@ public static class SSGIPass
     static IBlendState _blendReplaceNoAlpha0Additive1 = null!;
 
     // From Activision GTAO paper: https://www.activision.com/cdn/research/s2016_pbs_activision_occlusion.pptx
-    static readonly float[] _temporalRotations = { 60, 300, 180, 240, 120, 0 };
     static readonly float[] _spatialOffsets = { 0, 0.5f, 0.25f, 0.75f };
+    static readonly float[] _temporalRotations = { 60, 300, 180, 240, 120, 0 };
 
     static readonly Random _rand = new();
     static Matrix _prevViewMatrix = Matrix.Identity;
@@ -167,8 +167,9 @@ public static class SSGIPass
                 GI = new GIConstants
                 {
                     HalfProjScale = (float)(MyRender11.ResolutionF.Y / (Math.Tan(env.Matrices.FovH * 0.5) * 2) * 0.5),
-                    TemporalOffsets = _spatialOffsets[(frame / 6) % 4],
-                    TemporalDirections = _temporalRotations[frame % 6] / 360f,
+                    //TemporalOffsets = _spatialOffsets[(frame / 6) % 4],
+                    TemporalOffsets = _spatialOffsets[frame % 4],
+                    //TemporalDirections = _temporalRotations[frame % 6] / 360f, // can help with low sample count scenarios but introduces unwanted flickering
                     JitterSamples = true,
 
                     GIIntensity = MathHelper.Clamp(config.GIIntensity * 2.5f, 0, 1000),

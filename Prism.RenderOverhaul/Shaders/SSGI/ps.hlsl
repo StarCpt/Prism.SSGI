@@ -84,11 +84,11 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
         return LBuffer[pixelPos];
     }
     
-    float3 viewPosition = ReconstructViewPosition(DepthBuffer[pixelPos], uv) * 0.995;
+    float3 viewPosition = ReconstructViewPosition(DepthBuffer[pixelPos], uv) * 0.999;
     float3 viewNormal = LoadViewNormal(pixelPos);
     float3 viewDir = normalize(-viewPosition);
     
-    float noiseOffset = SpatialOffsets(pixelPos);
+    float noiseOffset = SpatialOffsets(pixelPos); // doesn't seem to do anything
     float noiseDirection = GradientNoise(pixelPos);
     float initialStep = frac(noiseOffset + GI.TemporalOffsets) + rand(uv) * GI.JitterSamples;
     float stepSize = max(GI.Radius * GI.HalfProjScale / -viewPosition.z, GI.StepCount) / float(GI.StepCount + 1); // in pixels

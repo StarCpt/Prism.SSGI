@@ -56,6 +56,9 @@ public class PrismRenderableProxy : MyRenderableProxy
             mapping.WriteAndPosition(ref renderableProxy.PrevMatrix);
         }
 
+        // this seems a bit inefficient.
+        // TODO: use transpiler in MyGeometryRendererOld.UpdateCullProxies
+        // and call the postfix directly if cullProxy.m_worldMatrixIndex == -1
         [HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
         [HarmonyPrefix]
         static void MyCullProxy_UpdateWorldMatrix_Prefix(MyCullProxy __instance, MyRenderableProxy[] ___RenderableProxies, out bool __state)

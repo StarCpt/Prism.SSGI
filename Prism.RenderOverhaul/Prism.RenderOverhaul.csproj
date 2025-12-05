@@ -203,4 +203,8 @@
     <Folder Include="ShaderTypes\Pipeline\" />
   </ItemGroup>
 
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+  	<Exec Command="xcopy /Y &quot;$(OutputPath)&quot; &quot;$(AppData)\Pulsar\Legacy\Local\Prism.RenderOverhaul&quot;" />
+  </Target>
+
 </Project>

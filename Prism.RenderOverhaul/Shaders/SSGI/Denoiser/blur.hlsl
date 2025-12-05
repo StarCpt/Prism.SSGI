@@ -85,14 +85,20 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
     totalWeight += 1;
     
     // randomly rotate sampling disc per pixel
-    float discRotation = GradientNoise(pixelPos) * PI * 2;
-    float2 rotSinCos;
-    sincos(discRotation, rotSinCos.x, rotSinCos.y);
+    //float discRotation = GradientNoise(pixelPos) * PI * 2;
+    //float2 rotSinCos;
+    //sincos(discRotation, rotSinCos.x, rotSinCos.y);
+    
+    // 0, 1
+    // 2, 3
+    int spatialIndex = (pixelPos.x % 2) + ((pixelPos.y % 2) * 2);
     
     float radius = Denoiser.BlurRadius;
-    for (int i = 0; i < 8; i++)
+    int sampleCount = 16;
+    for (int i = 0; i < sampleCount; i++)
     {
-        float2 offset = Rotate(poissonDisk[i + (FrameIndex % 8) * 8], rotSinCos.x, rotSinCos.y) * radius;
+        //float2 offset = poissonDisk[i] * radius;
+        float2 offset = poissonDisk[i + (sampleCount * ((FrameIndex + spatialIndex) % (64 / sampleCount)))] * radius;
         int2 pos = int2(position.xy + offset);
         
         if (any(pos < 0 || pos >= ScreenSize) || all(pos == pixelPos) || !IsForeground(DepthBuffer[pos]))
@@ -105,6 +111,15 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
         
         totalWeight += weight;
         totalColor += Source[pos].xyz * weight;
+        
+        if (weight < 0.01)
+        {
+            radius *= 0.75;
+        }
+        else
+        {
+            radius = clamp(radius * 2, 0, Denoiser.BlurRadius);
+        }
     }
     
     float3 finalColor = totalWeight > 0 ? (totalColor / totalWeight) : 0;
