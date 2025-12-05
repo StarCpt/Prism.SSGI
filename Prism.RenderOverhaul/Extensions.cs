@@ -3,9 +3,13 @@ using Prism.Common;
 using SharpDX.Direct3D11;
 using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using VRage.Generics;
+using VRage.Render11.GeometryStage2.Instancing;
 using VRage.Render11.RenderContext;
 using VRage.Render11.Resources;
+using VRage.Render11.Scene.Components;
+using VRageMath;
 using VRageRender;
 using Buffer = SharpDX.Direct3D11.Buffer;
 
@@ -100,4 +104,8 @@ public static class Extensions
         return (uint)rng.Next(1 << 16) << 16 | (uint)rng.Next(1 << 16);
     }
 
+    public static RowMatrix GetRowMatrix(this ref MyObjectDataCommon data)
+    {
+        return Unsafe.As<Vector4, RowMatrix>(ref data.m_row0);
+    }
 }

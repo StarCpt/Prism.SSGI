@@ -27,7 +27,7 @@ float3 compute_screen_ray(float2 uv)
 float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_Target
 {
 #if VISUALIZE_MOTION
-    return float4(abs(velocityTex[position.xy].xy) * 1000, 0, 1);
+    return float4(abs(velocityTex[position.xy].xy) * 500 * isfinite(velocityTex[position.xy].xy), 0, 1);
 #endif
     
 #if !ENABLE_TEMPORAL

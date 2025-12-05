@@ -55,16 +55,33 @@ void vs(uint vertexId : SV_VertexID, __VertexInput input, out VertexStageOutput 
     
     const float4x4 invViewProj = frame_.Environment.inv_view_proj_matrix;
     
+    float4 prevWorldPos;
+    
 #if defined(USE_SIMPLE_INSTANCING) // new pipeline
     float4x4 prevInstanceMatrix = construct_matrix_43(input.prev_matrix_row0, input.prev_matrix_row1, input.prev_matrix_row2);
     float4 objPos = unpack_position_and_scale(input.position);
-    float4 prevWorldPos = mul(objPos, prevInstanceMatrix);
-    output2.PrevClipPos = mul(prevWorldPos, PrevViewProj);
-#else // old pipeline (TODO)
+    prevWorldPos = mul(objPos, prevInstanceMatrix);
+#else
+    float4 objPos;
+    
+#if defined(USE_SKINNING)
+    float4x4 skinningMatrix = 0;
+	[unroll]
+    for (int i = 0; i < 4; i++)
+    {
+        skinningMatrix += object_.bone_matrix[input.blend_indices[i]] * input.blend_weights[i];
+    }
+    objPos = unpack_position_and_scale(input.position);
+    objPos = mul(objPos, skinningMatrix);
+    objPos /= objPos.w;
+#else
     VertexShaderInterface vertex = __prepare_interface(input, vertexId); // pretty inefficient, unsure if the compiler optimizes out unused code
-    float4x4 prevObjMatrix = construct_matrix_43(obj_prev_matrix_row0, obj_prev_matrix_row1, obj_prev_matrix_row2);
-    float4 objPos = vertex.position_scaled_untranslated;
-    float4 prevWorldPos = mul(objPos, prevObjMatrix);
-    output2.PrevClipPos = mul(prevWorldPos, PrevViewProj);
+    objPos = vertex.position_scaled_untranslated;
 #endif
+    
+    float4x4 prevObjMatrix = construct_matrix_43(obj_prev_matrix_row0, obj_prev_matrix_row1, obj_prev_matrix_row2);
+    prevWorldPos = mul(objPos, prevObjMatrix);
+#endif
+    
+    output2.PrevClipPos = mul(prevWorldPos, PrevViewProj);
 }

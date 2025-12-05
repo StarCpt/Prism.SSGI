@@ -3,6 +3,7 @@ using Prism.Common;
 using Prism.Maths;
 using Prism.Render.Pipeline.Old;
 using SharpDX.Direct3D11;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VRage.Render11.Common;
 using VRage.Render11.Culling;
@@ -57,18 +58,13 @@ public static class Patch_MyRenderScheduler
     static void Done_Postfix()
     {
         // update MyRenderableProxy previous matrices
-        long frame = MyCommon.FrameCounter;
-        foreach (MyCullQuery query in MyManagers.Cull.GetCullQueries().CullQueries)
+        foreach (MyCullProxy cullProxy in MyManagers.Cull.GetGBufferCullQuery().Results.CullProxies.AsSpan())
         {
-            foreach (MyCullProxy cullProxy in query.Results.CullProxies.AsSpan())
+            PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(cullProxy.RenderableProxies);
+            int proxyCount = proxies.Length;
+            for (int i = 0; i < proxyCount; i++)
             {
-                if (!cullProxy.Parent.IsCulled)
-                {
-                    foreach (MyRenderableProxy renderableProxy in cullProxy.RenderableProxies)
-                    {
-                        ((PrismRenderableProxy)renderableProxy).UpdatePrevMatrix(frame);
-                    }
-                }
+                proxies[i].UpdatePrevMatrix();
             }
         }
     }

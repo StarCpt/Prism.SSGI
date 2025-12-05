@@ -53,38 +53,86 @@ public class PrismRenderableProxy : MyRenderableProxy
         static unsafe void MyRenderableProxy_UpdateObjectBuffer_Postfix(MyRenderableProxy __instance, ref MyMapping mapping)
         {
             var renderableProxy = (PrismRenderableProxy)__instance;
+            mapping.Position(__instance.ObjectBufferSize - sizeof(RowMatrix));
             mapping.WriteAndPosition(ref renderableProxy.PrevMatrix);
         }
 
-        // this seems a bit inefficient.
-        // TODO: use transpiler in MyGeometryRendererOld.UpdateCullProxies
-        // and call the postfix directly if cullProxy.m_worldMatrixIndex == -1
-        [HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
-        [HarmonyPrefix]
-        static void MyCullProxy_UpdateWorldMatrix_Prefix(MyCullProxy __instance, MyRenderableProxy[] ___RenderableProxies, out bool __state)
+        [HarmonyPatch(typeof(MyRenderableProxy), nameof(MyRenderableProxy.Clear))]
+        [HarmonyPostfix]
+        static unsafe void MyRenderableProxy_Clear_Postfix(MyRenderableProxy __instance)
         {
-            bool matrixValid = __instance.m_worldMatrixIndex != -1; // current matrix is valid
-            __state = matrixValid;
-            //if (matrixValid)
-            //{
-            //    for (int i = 0; i < ___RenderableProxies.Length; i++)
-            //    {
-            //        ((PrismRenderableProxy)___RenderableProxies[i]).UpdatePrevMatrix();
-            //    }
-            //}
+            ((PrismRenderableProxy)__instance).PrevMatrix = default;
         }
 
-        [HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
-        [HarmonyPostfix]
-        static void MyCullProxy_UpdateWorldMatrix_Postfix(MyRenderableProxy[] ___RenderableProxies, bool __state)
+        //[HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
+        //[HarmonyPrefix]
+        //static void MyCullProxy_UpdateWorldMatrix_Prefix(MyCullProxy __instance, MyRenderableProxy[] ___RenderableProxies, out bool __state)
+        //{
+        //    bool matrixValid = __instance.m_worldMatrixIndex != -1; // current matrix is valid
+        //    __state = matrixValid;
+        //    //if (matrixValid)
+        //    //{
+        //    //    PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(___RenderableProxies);
+        //    //    for (int i = 0; i < proxies.Length; i++)
+        //    //    {
+        //    //        proxies[i].UpdatePrevMatrix();
+        //    //    }
+        //    //}
+        //}
+
+        //[HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
+        //[HarmonyPostfix]
+        //static void MyCullProxy_UpdateWorldMatrix_Postfix(MyRenderableProxy[] ___RenderableProxies, bool __state)
+        //{
+        //    bool matrixValid = __state;
+        //    //if (!matrixValid)
+        //    //{
+        //    //    PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(___RenderableProxies);
+        //    //    for (int i = 0; i < proxies.Length; i++)
+        //    //    {
+        //    //        proxies[i].UpdatePrevMatrix();
+        //    //    }
+        //    //}
+        //}
+
+        struct RenderableData
         {
-            bool matrixValid = __state; // current matrix was valid
-            if (!matrixValid)
+            public bool Valid;
+            public RowMatrix PrevMatrix;
+        }
+
+        [HarmonyPatch(typeof(MyRenderableComponent), nameof(MyRenderableComponent.RebuildRenderProxies))]
+        [HarmonyPrefix]
+        static void MyRenderableComponent_RebuildRenderProxies_Prefix(MyRenderableComponent __instance, out RenderableData __state)
+        {
+            if (__instance.Lods != null)
             {
-                for (int i = 0; i < ___RenderableProxies.Length; i++)
+                __state = new()
                 {
-                    ((PrismRenderableProxy)___RenderableProxies[i])._lastPrevMatrixUpdateFrame = -1;
-                    ((PrismRenderableProxy)___RenderableProxies[i]).UpdatePrevMatrix(0);
+                    Valid = true,
+                    PrevMatrix = __instance.Lods![__instance.CurrentLod].RenderableProxies[0].CommonObjectData.GetRowMatrix(),
+                };
+            }
+            else
+            {
+                __state = default;
+            }
+        }
+
+        [HarmonyPatch(typeof(MyRenderableComponent), nameof(MyRenderableComponent.RebuildRenderProxies))]
+        [HarmonyPostfix]
+        static void MyRenderableComponent_RebuildRenderProxies_Postfix(MyRenderableComponent __instance, RenderableData __state)
+        {
+            if (__state.Valid)
+            {
+                MyRenderLod[] lods = __instance.Lods;
+                for (var lod = 0; lod < lods.Length; lod++)
+                {
+                    PrismRenderableProxy[] lodProxies = Unsafe.As<PrismRenderableProxy[]>(lods[lod].RenderableProxies);
+                    for (int i = 0; i < lodProxies.Length; i++)
+                    {
+                        lodProxies[i].PrevMatrix = __state.PrevMatrix;
+                    }
                 }
             }
         }
@@ -93,15 +141,9 @@ public class PrismRenderableProxy : MyRenderableProxy
     public MyMaterialShadersBundleId PrismGBufferShaders;
     public RowMatrix PrevMatrix; // float4x3
 
-    private long _lastPrevMatrixUpdateFrame = -1;
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void UpdatePrevMatrix(long frame)
+    public void UpdatePrevMatrix()
     {
-        if (frame != _lastPrevMatrixUpdateFrame)
-        {
-            _lastPrevMatrixUpdateFrame = frame;
-            PrevMatrix = Unsafe.As<Vector4, RowMatrix>(ref CommonObjectData.m_row0);
-        }
+        PrevMatrix = CommonObjectData.GetRowMatrix();
     }
 }
