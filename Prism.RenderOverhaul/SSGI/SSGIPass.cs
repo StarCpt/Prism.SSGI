@@ -76,6 +76,7 @@ public static class SSGIPass
     static PixelShader? _psBlur;
     static IConstantBuffer _cbv = null!;
     static IRtvTexture _lbufferCopy = null!;
+    static IRtvTexture _mainOutput = null!;
     static IRtvTexture _historyTexture = null!;
     static IRtvTexture _prevDepthTex = null!;
     static IRtvTexture _prevGBuffer1 = null!;
@@ -95,6 +96,7 @@ public static class SSGIPass
         _cbv = MyManagers.Buffers.CreateConstantBuffer("Prism.SSGI2.CbvConstants", MathHelper.Align(sizeof(Constants), 16), usage: ResourceUsage.Dynamic, isGlobal: true);
         Vector2I res = MyRender11.BackBufferResolution;
         _lbufferCopy    = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvLBufferCopy",  res.X, res.Y, Format.R16G16B16A16_Float, mipLevels: 5, optionFlags: ResourceOptionFlags.GenerateMipMaps);
+        _mainOutput     = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvOutput",       res.X, res.Y, Format.R16G16B16A16_Float, mipLevels: 5, optionFlags: ResourceOptionFlags.GenerateMipMaps);
         _historyTexture = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvHistory",      res.X, res.Y, Format.R16G16B16A16_Float);
         _prevDepthTex   = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevDepth",    res.X, res.Y, Format.R32_Float);
         _prevGBuffer1   = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevGBuffer1", res.X, res.Y, MyGBuffer.Main.GBuffer1.Format);
@@ -226,15 +228,15 @@ public static class SSGIPass
         rc.PixelShader.SetConstantBuffer(0, _cbv);
         rc.PixelShader.SetSrvs(0, MyGBuffer.Main.GBuffer0, MyGBuffer.Main.GBuffer1, MyGBuffer.Main.GBuffer2, lightBuffer, MyGBuffer.Main.DepthStencil.SrvDepth);
 
-        IBorrowedRtvTexture tempRtv = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtv1", Format.R16G16B16A16_Float);
-
         // main pass
         {
             rc.SetBlendState(null);
             rc.PixelShader.Set(_ps);
-            rc.SetRtv(tempRtv);
+            rc.SetRtv(_mainOutput);
             MyScreenPass.DrawFullscreenQuad(rc);
             rc.SetRtvNull();
+
+            rc.GenerateMips(_mainOutput);
         }
 
         IBorrowedRtvTexture tempRtv2 = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtv2", Format.R16G16B16A16_Float);
@@ -248,7 +250,7 @@ public static class SSGIPass
             // 7: velocity
             // 8: previous depth
             // 9: previous gbuffer1 (normals + ao)
-            rc.PixelShader.SetSrvs(5, _historyTexture, tempRtv, GBufferVelocity.Get(MyGBuffer.Main), _prevDepthTex, _prevGBuffer1);
+            rc.PixelShader.SetSrvs(5, _historyTexture, _mainOutput, GBufferVelocity.Get(MyGBuffer.Main), _prevDepthTex, _prevGBuffer1);
             rc.SetRtv(tempRtv2);
             MyScreenPass.DrawFullscreenQuad(rc);
             rc.SetRtvNull();
@@ -264,7 +266,6 @@ public static class SSGIPass
             //rc.SetRtvNull(); // does not need to be finished immediately
         }
 
-        tempRtv.Release();
         tempRtv2.Release();
 
         rc.CopyResource(MyGBuffer.Main.GBuffer1, _prevGBuffer1);

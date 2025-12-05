@@ -94,7 +94,10 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     history.w = clamp(history.w, 0, Denoiser.MaxHistory);
     history.w += 1.0;
     
-    float3 currentColor = Source[pixelPos].xyz;
+    // from the reblur slides - using blurred input when history is lacking
+    // better to use edge-aware upscaling but this lazy version seems good enough
+    float mip = max(0, -(history.w - 1) + 4);
+    float3 currentColor = Source.SampleLevel(LinearSampler, uv, mip);
     
     float3 finalColor = lerp(history.xyz, currentColor, 1.0 / history.w);
     return float4(finalColor, history.w);
