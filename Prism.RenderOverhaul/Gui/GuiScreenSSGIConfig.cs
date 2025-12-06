@@ -15,11 +15,13 @@ namespace Prism.Render.Gui;
 
 public abstract class PropertyBinding
 {
+    public abstract MyGuiControlBase Control { get; }
     public abstract void Save();
 }
 
 public class PropertyBinding<TControl, TValue> : PropertyBinding where TControl : MyGuiControlBase
 {
+    public override MyGuiControlBase Control => _control;
     private readonly TControl _control;
     private readonly object _target;
     private readonly PropertyInfo _property;
@@ -41,8 +43,74 @@ public class PropertyBinding<TControl, TValue> : PropertyBinding where TControl 
 
 public class GuiScreenSSGIConfig : MyGuiScreenBase
 {
-    private readonly List<PropertyBinding> _bindings = [];
+    struct PresetData
+    {
+        public float GIIntensity;
+        public int InputMipLevel;
+        public int SliceCount;
+        public int StepCount;
+        public float Radius;
+        public float ExpFactor;
+        public float Thickness;
+        public float DenoiserMaxHistory;
+        public float DenoiserBlurRadius;
 
+        public void ApplyTo(GuiScreenSSGIConfig target)
+        {
+            ((MyGuiControlSlider)target._controlsByPropertyName["GIIntensity"])       .Value = GIIntensity;
+            ((MyGuiControlSlider)target._controlsByPropertyName["InputMipLevel"])     .Value = InputMipLevel;
+            ((MyGuiControlSlider)target._controlsByPropertyName["SliceCount"])        .Value = SliceCount;
+            ((MyGuiControlSlider)target._controlsByPropertyName["StepCount"])         .Value = StepCount;
+            ((MyGuiControlSlider)target._controlsByPropertyName["Radius"])            .Value = Radius;
+            ((MyGuiControlSlider)target._controlsByPropertyName["ExpFactor"])         .Value = ExpFactor;
+            ((MyGuiControlSlider)target._controlsByPropertyName["Thickness"])         .Value = Thickness;
+            ((MyGuiControlSlider)target._controlsByPropertyName["DenoiserMaxHistory"]).Value = DenoiserMaxHistory;
+            ((MyGuiControlSlider)target._controlsByPropertyName["DenoiserBlurRadius"]).Value = DenoiserBlurRadius;
+        }
+    }
+
+    static readonly PresetData[] _presets =
+    {
+        new PresetData // low
+        {
+            GIIntensity = 5,
+            InputMipLevel = 4,
+            SliceCount = 1,
+            StepCount = 8,
+            Radius = 5.0f,
+            ExpFactor = 1.5f,
+            Thickness = 1.0f,
+            DenoiserMaxHistory = 24,
+            DenoiserBlurRadius = 16,
+        },
+        new PresetData // medium
+        {
+            GIIntensity = 5,
+            InputMipLevel = 3,
+            SliceCount = 2,
+            StepCount = 16,
+            Radius = 7.5f,
+            ExpFactor = 1.5f,
+            Thickness = 1.0f,
+            DenoiserMaxHistory = 20,
+            DenoiserBlurRadius = 16,
+        },
+        new PresetData // high
+        {
+            GIIntensity = 5,
+            InputMipLevel = 3,
+            SliceCount = 4,
+            StepCount = 32,
+            Radius = 10.0f,
+            ExpFactor = 1.5f,
+            Thickness = 1.0f,
+            DenoiserMaxHistory = 20,
+            DenoiserBlurRadius = 16,
+        },
+    };
+
+    private readonly List<PropertyBinding> _bindings = [];
+    private readonly Dictionary<string, MyGuiControlBase> _controlsByPropertyName = [];
     private readonly SSGIConfig _config;
 
     public GuiScreenSSGIConfig(SSGIConfig config)
@@ -58,7 +126,6 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
         CloseButtonEnabled = true;
     }
 
-
     public override string GetFriendlyName() => GetType().FullName;
 
     public override void LoadContent()
@@ -71,6 +138,8 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
     {
         base.RecreateControls(constructor);
 
+        AddCaption("SSGI Settings");
+
         float columnWidth = (Size!.Value.X - 0.1f) / 2;
         float rowHeight = 0.05f;
 
@@ -80,15 +149,34 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
             RowHeight = rowHeight,
         };
 
+        // preset buttons
+        var dropdown = new MyGuiControlCombobox
+        {
+            Position = new Vector2(0.0355f, -0.222f),
+            Size = new Vector2(0.174f, 0),
+            OriginAlign = MyGuiDrawAlignEnum.HORISONTAL_LEFT_AND_VERTICAL_CENTER,
+        };
+        dropdown.AddItem(0, "Low");
+        dropdown.AddItem(1, "Medium");
+        dropdown.AddItem(2, "High");
+        dropdown.AddItem(99, "Quality Preset");
+        dropdown.SelectItemByKey(99);
+        dropdown.ItemSelected += () =>
+        {
+            _presets[dropdown.GetSelectedKey()].ApplyTo(this);
+            dropdown.SelectItemByKey(99, false);
+        };
+        AddControl(dropdown);
+
         int row = 0;
         foreach (var property in GetBindingTargets())
         {
-            _bindings.Add(CreateControl(property, grid, 0, row++));
+            var control = CreateControl(property, grid, 0, row++);
+            _bindings.Add(control);
+            _controlsByPropertyName.Add(property.Name, control.Control);
         }
 
         grid.AddControlsToScreen(this, Vector2.Zero, false);
-
-        AddCaption("SSGI Settings");
 
         // add footer buttons
         {
