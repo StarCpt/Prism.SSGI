@@ -64,36 +64,21 @@ public class PrismRenderableProxy : MyRenderableProxy
             ((PrismRenderableProxy)__instance).PrevMatrix = default;
         }
 
-        //[HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
-        //[HarmonyPrefix]
-        //static void MyCullProxy_UpdateWorldMatrix_Prefix(MyCullProxy __instance, MyRenderableProxy[] ___RenderableProxies, out bool __state)
-        //{
-        //    bool matrixValid = __instance.m_worldMatrixIndex != -1; // current matrix is valid
-        //    __state = matrixValid;
-        //    //if (matrixValid)
-        //    //{
-        //    //    PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(___RenderableProxies);
-        //    //    for (int i = 0; i < proxies.Length; i++)
-        //    //    {
-        //    //        proxies[i].UpdatePrevMatrix();
-        //    //    }
-        //    //}
-        //}
+        [HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
+        [HarmonyPrefix]
+        static void MyCullProxy_UpdateWorldMatrix_Prefix(MyCullProxy __instance, MyRenderableProxy[] ___RenderableProxies)
+        {
+            bool matrixValid = __instance.m_worldMatrixIndex != -1; // current matrix is valid
+            if (matrixValid)
+            {
+                PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(___RenderableProxies);
+                for (int i = 0; i < proxies.Length; i++)
+                {
+                    proxies[i].UpdatePrevMatrix();
+                }
+            }
+        }
 
-        //[HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
-        //[HarmonyPostfix]
-        //static void MyCullProxy_UpdateWorldMatrix_Postfix(MyRenderableProxy[] ___RenderableProxies, bool __state)
-        //{
-        //    bool matrixValid = __state;
-        //    //if (!matrixValid)
-        //    //{
-        //    //    PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(___RenderableProxies);
-        //    //    for (int i = 0; i < proxies.Length; i++)
-        //    //    {
-        //    //        proxies[i].UpdatePrevMatrix();
-        //    //    }
-        //    //}
-        //}
 
         struct RenderableData
         {
@@ -110,7 +95,7 @@ public class PrismRenderableProxy : MyRenderableProxy
                 __state = new()
                 {
                     Valid = true,
-                    PrevMatrix = __instance.Lods![__instance.CurrentLod].RenderableProxies[0].CommonObjectData.GetRowMatrix(),
+                    PrevMatrix = __instance.Lods![__instance.CurrentLod].RenderableProxies[0].CommonObjectData.GetRowMatrixRef(),
                 };
             }
             else
@@ -136,6 +121,38 @@ public class PrismRenderableProxy : MyRenderableProxy
                 }
             }
         }
+
+        [HarmonyPatch(typeof(MyRenderableComponent), nameof(MyRenderableComponent.SetProxiesForCurrentLod))]
+        [HarmonyPrefix]
+        static void MyRenderableComponent_SetProxiesForCurrentLod_Prefix(MyRenderableComponent __instance, out RenderableData __state)
+        {
+            if (__instance.CullProxy.RenderableProxies != null)
+            {
+                __state = new()
+                {
+                    Valid = true,
+                    PrevMatrix = __instance.CullProxy.RenderableProxies[0].CommonObjectData.GetRowMatrixRef(),
+                };
+            }
+            else
+            {
+                __state = default;
+            }
+        }
+
+        [HarmonyPatch(typeof(MyRenderableComponent), nameof(MyRenderableComponent.SetProxiesForCurrentLod))]
+        [HarmonyPostfix]
+        static void MyRenderableComponent_SetProxiesForCurrentLod_Postfix(MyRenderableComponent __instance, RenderableData __state)
+        {
+            if (__state.Valid)
+            {
+                PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(__instance.CullProxy.RenderableProxies);
+                for (int i = 0; i < proxies.Length; i++)
+                {
+                    proxies[i].PrevMatrix = __state.PrevMatrix;
+                }
+            }
+        }
     }
 
     public MyMaterialShadersBundleId PrismGBufferShaders;
@@ -144,6 +161,6 @@ public class PrismRenderableProxy : MyRenderableProxy
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void UpdatePrevMatrix()
     {
-        PrevMatrix = CommonObjectData.GetRowMatrix();
+        PrevMatrix = CommonObjectData.GetRowMatrixRef();
     }
 }

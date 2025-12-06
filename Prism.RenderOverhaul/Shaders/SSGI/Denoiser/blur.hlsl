@@ -63,7 +63,12 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
     return Source[pixelPos];
 #endif // VISUALIZE_HISTORY_LENGTH
     
-#if VISUALIZE_MOTION || !ENABLE_BLUR
+#if VISUALIZE_MOTION
+    blendedColor = Source[pixelPos].xyz;
+    return Source[pixelPos];
+#endif
+    
+#if !ENABLE_BLUR
     blendedColor = ApplyBlending(pixelPos, Source[pixelPos].xyz);
     return Source[pixelPos];
 #endif

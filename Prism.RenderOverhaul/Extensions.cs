@@ -104,8 +104,8 @@ public static class Extensions
         return (uint)rng.Next(1 << 16) << 16 | (uint)rng.Next(1 << 16);
     }
 
-    public static RowMatrix GetRowMatrix(this ref MyObjectDataCommon data)
+    public static ref RowMatrix GetRowMatrixRef(this ref MyObjectDataCommon data)
     {
-        return Unsafe.As<Vector4, RowMatrix>(ref data.m_row0);
+        return ref Unsafe.As<Vector4, RowMatrix>(ref data.m_row0);
     }
 }

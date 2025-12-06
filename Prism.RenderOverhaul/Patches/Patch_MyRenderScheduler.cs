@@ -58,14 +58,14 @@ public static class Patch_MyRenderScheduler
     static void Done_Postfix()
     {
         // update MyRenderableProxy previous matrices
-        foreach (MyCullProxy cullProxy in MyManagers.Cull.GetGBufferCullQuery().Results.CullProxies.AsSpan())
-        {
-            PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(cullProxy.RenderableProxies);
-            int proxyCount = proxies.Length;
-            for (int i = 0; i < proxyCount; i++)
-            {
-                proxies[i].UpdatePrevMatrix();
-            }
-        }
+        //foreach (MyCullProxy cullProxy in MyManagers.Cull.GetGBufferCullQuery().Results.CullProxies.AsSpan())
+        //{
+        //    PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(cullProxy.RenderableProxies);
+        //    int proxyCount = proxies.Length;
+        //    for (int i = 0; i < proxyCount; i++)
+        //    {
+        //        proxies[i].UpdatePrevMatrix();
+        //    }
+        //}
     }
 }

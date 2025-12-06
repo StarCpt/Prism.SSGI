@@ -77,7 +77,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
         // something to keep in mind when adjusting the normal diff threshold.
         float3 prevViewNormalReproj = ReprojectPrevViewNormal(UnpackNormal(prevGBuffer1[offsetPos].xy));
         
-        static const float DEPTH_DIFF_THRESHOLD = 0.05; // meters
+        static const float DEPTH_DIFF_THRESHOLD = 0.1; // meters
         static const float NORMAL_DOT_DIFF_THRESHOLD = 0.5;
         
         bool depthRejected = depthDiff > (DEPTH_DIFF_THRESHOLD * dot_ray_surface_inv);
