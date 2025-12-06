@@ -10,31 +10,31 @@ public class SSGIConfig
     [ConfigProperty("Enable SSGI")]
     public bool Enabled { get; set; } = true;
 
-    [FloatConfigProperty("GI Intensity", 0, 10, 5, toolTip: "Global illumination light multiplier.")]
+    [FloatConfigProperty("GI Intensity", 0, 10, 5, "Light intensity multiplier.")]
     public float GIIntensity { get; set; } = 5;
 
-    [IntConfigProperty("Input Prefiltering", 0, 4, 3, toolTip: "More prefiltering improves stability but causes light leaking.")]
-    public int InputMipLevel { get; set; } = 0;
+    [IntConfigProperty("Input Prefiltering", 0, 4, 3, "More prefiltering improves temporal stability but increases light leaking.")]
+    public int InputMipLevel { get; set; } = 3;
 
-    [IntConfigProperty("Slices", 1, 32, 2)]
+    [IntConfigProperty("Slices", 1, 32, 2, "Increases quality at a significant performance cost.")]
     public int SliceCount { get; set; } = 2;
 
-    [IntConfigProperty("Steps", 1, 64, 16)]
+    [IntConfigProperty("Steps", 1, 64, 16, "Increases quality at a significant performance cost.")]
     public int StepCount { get; set; } = 16;
 
-    [FloatConfigProperty("Radius", 0, 15, 7.5f, toolTip: "Approximate range in meters.")]
+    [FloatConfigProperty("Radius", 0, 15, 7.5f, "Approximate range in meters.")]
     public float Radius { get; set; } = 10;
 
-    [FloatConfigProperty("ExpFactor", 1, 2, 1.5f)]
+    [FloatConfigProperty("ExpFactor", 1, 2, 1.5f, "Controls sample distribution.\nHigher values cause more samples to be placed near the pixel.")]
     public float ExpFactor { get; set; } = 1.5f;
 
     [FloatConfigProperty("Thickness", 0, 10, 1)]
     public float Thickness { get; set; } = 1;
 
-    [FloatConfigProperty("Denoiser Temporal History", 0, 50, 20)]
+    [FloatConfigProperty("Denoiser Temporal History", 0, 50, 20, "Sets the maximum accumulated history length.\nHigher values increase stability at the cost of slower reaction to lighting changes.")]
     public float DenoiserMaxHistory { get; set; } = 20;
 
-    [FloatConfigProperty("Denoiser Blur Radius", 0, 32, 16)]
+    [FloatConfigProperty("Denoiser Blur Radius", 0, 32, 16, "Sets the maximum blur radius.\nHigher values can lower noise but causes the lighting to look flatter.")]
     public float DenoiserBlurRadius { get; set; } = 16;
 
     private readonly string _filePath;
