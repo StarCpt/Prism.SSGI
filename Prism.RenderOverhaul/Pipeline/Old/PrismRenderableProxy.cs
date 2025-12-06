@@ -61,7 +61,9 @@ public class PrismRenderableProxy : MyRenderableProxy
         [HarmonyPostfix]
         static unsafe void MyRenderableProxy_Clear_Postfix(MyRenderableProxy __instance)
         {
-            ((PrismRenderableProxy)__instance).PrevMatrix = default;
+            var proxy = (PrismRenderableProxy)__instance;
+            proxy.PrismGBufferShaders = MyMaterialShadersBundleId.NULL;
+            proxy.PrevMatrix = default;
         }
 
         [HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
@@ -78,7 +80,6 @@ public class PrismRenderableProxy : MyRenderableProxy
                 }
             }
         }
-
 
         struct RenderableData
         {
