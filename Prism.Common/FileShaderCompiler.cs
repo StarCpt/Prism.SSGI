@@ -3,6 +3,7 @@ using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Prism.Common
@@ -74,69 +75,51 @@ namespace Prism.Common
             _gameShaderBasePath = gameShaderBasePath;
         }
 
-        public PixelShader CompilePixel(Device device, string id, string entryPoint, params ShaderMacro[] defines)
-        {
-            CompilationResult compilation = CompilePixelBytecode(id, entryPoint, defines);
-            return new PixelShader(device, compilation);
-        }
-
-        public CompilationResult CompilePixelBytecode(string id, string entryPoint, params ShaderMacro[] defines)
-        {
-            string filePath = Path.Combine(_baseShaderPath, id);
-            using (StreamReader sr = new StreamReader(filePath, Encoding.UTF8))
-            {
-                string fileText = sr.ReadToEnd();
-                CompilationResult compilation = ShaderBytecode.Compile(
-                    fileText,
-                    entryPoint,
-                    "ps_5_0",
-                    ShaderFlags.OptimizationLevel3,
-                    EffectFlags.None,
-                    defines,
-                    new FileIncludeHandler(filePath, _gameShaderBasePath));
-                return compilation;
-            }
-        }
-
         public VertexShader CompileVertex(Device device, string id, string entryPoint, params ShaderMacro[] defines)
         {
             CompilationResult compilation = CompileVertexBytecode(id, entryPoint, defines);
             return new VertexShader(device, compilation);
         }
 
-        public CompilationResult CompileVertexBytecode(string id, string entryPoint, params ShaderMacro[] defines)
+        public PixelShader CompilePixel(Device device, string id, string entryPoint, params ShaderMacro[] defines)
         {
-            string filePath = Path.Combine(_baseShaderPath, id);
-            using (StreamReader sr = new StreamReader(filePath, Encoding.UTF8))
-            {
-                string fileText = sr.ReadToEnd();
-                CompilationResult compilation = ShaderBytecode.Compile(
-                    fileText,
-                    entryPoint,
-                    "vs_5_0",
-                    ShaderFlags.OptimizationLevel3,
-                    EffectFlags.None,
-                    defines,
-                    new FileIncludeHandler(filePath, _gameShaderBasePath));
-                return compilation;
-            }
+            CompilationResult compilation = CompilePixelBytecode(id, entryPoint, defines);
+            return new PixelShader(device, compilation);
         }
 
         public ComputeShader CompileCompute(Device device, string id, string entryPoint, params ShaderMacro[] defines)
         {
+            CompilationResult compilation = CompileComputeBytecode(id, entryPoint, defines);
+            return new ComputeShader(device, compilation);
+        }
+
+        public CompilationResult CompileVertexBytecode(string id, string entryPoint, params ShaderMacro[] defines) => CompileBytecodeInternal(id, entryPoint, "vs_5_0", defines);
+        public CompilationResult CompilePixelBytecode(string id, string entryPoint, params ShaderMacro[] defines) => CompileBytecodeInternal(id, entryPoint, "ps_5_0", defines);
+        public CompilationResult CompileComputeBytecode(string id, string entryPoint, params ShaderMacro[] defines) => CompileBytecodeInternal(id, entryPoint, "cs_5_0", defines);
+
+        private CompilationResult CompileBytecodeInternal(string id, string entryPoint, string profile, ShaderMacro[] defines)
+        {
             string filePath = Path.Combine(_baseShaderPath, id);
-            using (StreamReader sr = new StreamReader(filePath, Encoding.UTF8))
+            using StreamReader sr = new(filePath, Encoding.UTF8);
+            string shaderSource = sr.ReadToEnd();
+
+            if (string.IsNullOrEmpty(shaderSource))
             {
-                string fileText = sr.ReadToEnd();
-                CompilationResult compilation = ShaderBytecode.Compile(
-                    fileText,
-                    entryPoint,
-                    "cs_5_0",
-                    ShaderFlags.OptimizationLevel3,
-                    EffectFlags.None,
-                    defines,
-                    new FileIncludeHandler(filePath, _gameShaderBasePath));
-                return new ComputeShader(device, compilation);
+                throw new ArgumentNullException(nameof(shaderSource));
+            }
+
+            using Include include = new FileIncludeHandler(filePath, _gameShaderBasePath);
+            IntPtr sourcePtr = Marshal.StringToHGlobalAnsi(shaderSource);
+            try
+            {
+                return ShaderBytecode.Compile(sourcePtr, shaderSource.Length, entryPoint, profile, ShaderFlags.OptimizationLevel3, EffectFlags.None, defines, include);
+            }
+            finally
+            {
+                if (sourcePtr != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(sourcePtr);
+                }
             }
         }
     }
