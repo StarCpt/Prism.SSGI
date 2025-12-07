@@ -54,7 +54,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     float3 viewDir = -normalize(compute_screen_ray(uv));
     float3 viewNormal = LoadViewNormal(pixelPos);
     
-    const float dot_ray_surface_inv = rcp(clamp(dot(viewDir, viewNormal), 0.01, 1));
+    const float dot_ray_surface_inv = 1.0 / clamp(dot(viewDir, viewNormal), 0.1, 1);
     
     float weightSum = 0;
     float4 historySum = 0;

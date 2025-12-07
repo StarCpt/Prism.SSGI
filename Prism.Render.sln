@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36203.30
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prism.RenderOverhaul", "Prism.RenderOverhaul\Prism.RenderOverhaul.csproj", "{2FA73252-9715-485D-87A0-0B19E2046B71}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prism.Render", "Prism.Render\Prism.Render.csproj", "{2FA73252-9715-485D-87A0-0B19E2046B71}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Prism.Common", "Prism.Common\Prism.Common.csproj", "{38DA2857-78C7-A688-3916-D90E1468C0D6}"
 EndProject

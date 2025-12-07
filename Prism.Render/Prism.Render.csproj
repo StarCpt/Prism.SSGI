@@ -8,7 +8,6 @@
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <DefineConstants>$(DefineConstants);DEV</DefineConstants>
-    <RootNamespace>Prism.Render</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -204,7 +203,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-  	<Exec Command="xcopy /Y &quot;$(OutputPath)&quot; &quot;$(AppData)\Pulsar\Legacy\Local\Prism.RenderOverhaul&quot;" />
+  	<Exec Command="xcopy /Y &quot;$(OutputPath)&quot; &quot;$(AppData)\Pulsar\Legacy\Local\Prism.Render&quot;" />
   </Target>
 
 </Project>
