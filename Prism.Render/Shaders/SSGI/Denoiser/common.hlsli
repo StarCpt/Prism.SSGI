@@ -10,6 +10,11 @@ bool IsForeground(float hwDepth)
     return hwDepth != 0;
 }
 
+float sq(float val)
+{
+    return val * val;
+}
+
 static const float PI = 3.141592653589793;
 static const float HALF_PI = 1.5707963267948966;
 

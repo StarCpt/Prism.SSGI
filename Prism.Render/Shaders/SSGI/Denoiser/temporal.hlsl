@@ -94,10 +94,38 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     history.w = clamp(history.w, 0, Denoiser.MaxHistory);
     history.w += 1.0;
     
-    // from the reblur slides - using blurred input when history is lacking
-    // better to use edge-aware upscaling but this lazy version seems good enough
-    float mip = max(0, -(history.w - 1) + 4);
-    float3 currentColor = Source.SampleLevel(LinearSampler, uv, 0);
+    // from the reblur slides - use blurred input if history is lacking
+    float mip = max(0, -(history.w - min(3, Denoiser.MaxHistory)));
+    float3 currentColor;
+    [branch]
+    if (mip >= 1)
+    {
+        // depth-aware box blur to prevent ghosting
+        currentColor = 0;
+        int radius = 1 << int(mip - 1);
+        for (int y = -radius; y <= radius; y++)
+        {
+            for (int x = -radius; x <= radius; x++)
+            {
+                int2 offsetPos = pixelPos + int2(x, y);
+                if (any(offsetPos < 0 || offsetPos >= ScreenSize))
+                    continue;
+                
+                static const float DEPTH_DIFF_THRESHOLD = 0.1; // meters
+                
+                float depthDiff = abs(depthZ - LoadWorldDepth(offsetPos));
+                if (depthDiff > (DEPTH_DIFF_THRESHOLD * dot_ray_surface_inv))
+                    continue;
+                
+                currentColor += Source[offsetPos];
+            }
+        }
+        currentColor /= sq(radius * 2 + 1);
+    }
+    else
+    {
+        currentColor = Source.SampleLevel(PointSampler, uv, 0);
+    }
     
     float3 finalColor = lerp(history.xyz, currentColor, 1.0 / history.w);
     return float4(finalColor, history.w);
