@@ -73,11 +73,11 @@ public class PrismRenderableProxy : MyRenderableProxy
             bool matrixValid = __instance.m_worldMatrixIndex != -1; // current matrix is valid
             if (matrixValid)
             {
-                PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(___RenderableProxies);
-                for (int i = 0; i < proxies.Length; i++)
-                {
-                    proxies[i].UpdatePrevMatrix();
-                }
+                //PrismRenderableProxy[] proxies = Unsafe.As<PrismRenderableProxy[]>(___RenderableProxies);
+                //for (int i = 0; i < proxies.Length; i++)
+                //{
+                //    proxies[i].UpdatePrevMatrix();
+                //}
             }
         }
 
