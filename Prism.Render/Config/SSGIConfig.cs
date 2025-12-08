@@ -31,11 +31,14 @@ public class SSGIConfig
     [FloatConfigProperty("Thickness", 0, 10, 1)]
     public float Thickness { get; set; } = 1;
 
-    [FloatConfigProperty("Denoiser Temporal History", 0, 50, 20, "Sets the maximum accumulated history length.\nHigher values increase stability at the cost of slower reaction to lighting changes.")]
-    public float DenoiserMaxHistory { get; set; } = 20;
+    [IntConfigProperty("Denoiser Temporal History", 0, 50, 20, "Sets the maximum accumulated history length.\nHigher values increase stability at the cost of slower reaction to lighting changes.")]
+    public int DenoiserMaxHistory { get; set; } = 20;
 
-    [FloatConfigProperty("Denoiser Blur Radius", 0, 32, 16, "Sets the maximum blur radius.\nHigher values can lower noise but causes the lighting to look flatter.")]
+    //[IntConfigProperty("Denoiser Blur Radius", 0, 32, 16, "Sets the maximum blur radius.\nHigher values can lower noise but causes the lighting to look flatter.")]
     public float DenoiserBlurRadius { get; set; } = 16;
+
+    [IntConfigProperty("Denoiser Blur Iterations", 0, 7, 5, "Sets the maximum blur iterations.\nHigher values can lower noise but causes the lighting to look flatter.")]
+    public int DenoiserBlurIterations { get; set; } = 5;
 
     private readonly string _filePath;
 

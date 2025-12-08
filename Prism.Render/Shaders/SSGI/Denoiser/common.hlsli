@@ -2,21 +2,20 @@
 #define SSGI2_DENOISER_COMMON
 
 #include "../bindings.hlsli"
+#include "../common.hlsli"
 
+// debug toggles
+#define ENABLE_TEMPORAL 1
+#define ENABLE_BLUR 1
+#define BLEND_WITH_ALBEDO 1
+#define BLEND_WITH_METALNESS 1
+#define VISUALIZE_HISTORY_LENGTH 0
 #define VISUALIZE_MOTION 0
 
-bool IsForeground(float hwDepth)
-{
-    return hwDepth != 0;
-}
-
-float sq(float val)
-{
-    return val * val;
-}
-
-static const float PI = 3.141592653589793;
-static const float HALF_PI = 1.5707963267948966;
+// values from section 4.4 of the SVGF paper
+static const float SIGMA_Z = 1;
+static const float SIGMA_N = 128;
+static const float SIGMA_LUM = 4;
 
 // https://www.geeks3d.com/20100628/3d-programming-ready-to-use-64-sample-poisson-disc/
 static const float2 poissonDisk[64] =

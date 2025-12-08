@@ -1,0 +1,127 @@
+#include "common.hlsli"
+
+Texture2D<float4> ColorAndVariance : register(t5);
+
+// filter variance using a 3x3 gaussian kernel
+float ComputeFilteredVariance(const int2 centerPixelPos)
+{
+    // TODO: rewrite
+    
+    float sum = 0.f;
+
+    const float kernel[2][2] =
+    {
+        { 1.0 / 4.0, 1.0 / 8.0 },
+        { 1.0 / 8.0, 1.0 / 16.0 },
+    };
+
+    const int radius = 1;
+    for (int yy = -radius; yy <= radius; yy++)
+    {
+        for (int xx = -radius; xx <= radius; xx++)
+        {
+            const int2 pos = centerPixelPos + int2(xx, yy);
+            const float weight = kernel[abs(xx)][abs(yy)];
+            sum += ColorAndVariance[pos].w * weight;
+        }
+    }
+    
+    return sum;
+}
+
+float ComputeEdgeWeight(
+    float centerDepth, float depth, float phiDepth,
+    float3 centerNormal, float3 normal, float phiNormal,
+    float centerLuminance, float luminance, float phiLuminance)
+{
+    float wNormal = pow(saturate(dot(centerNormal, normal)), phiNormal);
+    float wDepth = (phiDepth == 0) ? 0 : (abs(centerDepth - depth) / phiDepth);
+    float wLuminance = abs(centerLuminance - luminance) / phiLuminance;
+    
+    wDepth = max(0, wDepth);
+    wLuminance = max(0, wLuminance);
+    
+    float edgeWeight = exp(-wLuminance - wDepth) * wNormal;
+    return edgeWeight;
+}
+
+static const float weights[3] = { 1, 2.0 / 3.0, 1.0 / 6.0 };
+//static const float weights[3] = { 1, 1, 1 };
+
+float3 ApplyBlending(const uint2 pixelPos, float3 color)
+{
+#if BLEND_WITH_ALBEDO
+    color *= GBuffer0[pixelPos].xyz;
+#endif
+#if BLEND_WITH_METALNESS
+    color *= (1 - GBuffer2[pixelPos].x);
+#endif
+    return color;
+}
+
+float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
+#if ENABLE_BLENDED_OUTPUT
+, out float3 blendedColor : SV_Target1
+#endif
+) : SV_Target0
+{
+    const int2 pixelPos = position.xy;
+    
+    if (!IsForeground(DepthBuffer[pixelPos]))
+    {
+#if ENABLE_BLENDED_OUTPUT
+        blendedColor = 0;
+#endif
+        return 0;
+    }
+    
+    const float centerDepth = LoadWorldDepth(pixelPos);
+    const float3 centerNormal = LoadViewNormal(pixelPos);
+    const float3 centerColor = ColorAndVariance[pixelPos].xyz;
+    const float centerVariance = ComputeFilteredVariance(pixelPos);
+    
+    float totalWeight = 1;
+    float3 totalColor = centerColor;
+    float totalVariance = centerVariance;
+    
+    float phiDepth = 1; // PLACEHOLDER
+    float phiNormal = SIGMA_N;
+    float phiIllumination = SIGMA_LUM * max(1, sqrt(max(0, centerVariance + 1e-10)));
+    
+    static const int radius = 2;
+    for (int y = -radius; y <= radius; y++)
+    {
+        for (int x = -radius; x <= radius; x++)
+        {
+            const int2 samplePos = pixelPos + int2(x, y) * Denoiser.AtrousStepSize;
+            
+            if (any(samplePos < 0 || samplePos >= ScreenSize) || all(samplePos == pixelPos) || !IsForeground(DepthBuffer[samplePos]))
+                continue;
+            
+            const float depth = LoadWorldDepth(samplePos);
+            const float3 normal = LoadViewNormal(samplePos);
+            const float3 color = ColorAndVariance[samplePos].xyz;
+            const float variance = ColorAndVariance[samplePos].w;
+            
+            const float kernelWeight = weights[abs(x)] * weights[abs(y)];
+            const float edgeWeight = ComputeEdgeWeight(
+                centerDepth, depth, phiDepth,
+                centerNormal, normal, phiNormal,
+                luminance(centerColor), luminance(color), phiIllumination);
+            
+            float weight = kernelWeight * edgeWeight;
+
+            totalWeight += weight;
+            totalColor += color * weight;
+            totalVariance += variance * sq(weight);
+        }
+    }
+    
+    float3 finalColor = totalColor / totalWeight;
+    float finalVariance = totalVariance / sq(totalWeight);
+    
+#if ENABLE_BLENDED_OUTPUT
+    blendedColor = ApplyBlending(pixelPos, finalColor);
+#endif
+    return float4(finalColor, finalVariance);
+}

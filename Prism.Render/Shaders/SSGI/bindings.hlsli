@@ -8,8 +8,8 @@ SamplerState LinearSampler  : register(s2);
 struct GIConstants
 {
     float HalfProjScale;
-    float TemporalOffsets;
-    float TemporalDirections;
+    uint _pad1;
+    uint _pad2;
     bool JitterSamples;
 
     float GIIntensity;
@@ -27,7 +27,7 @@ struct DenoiserConstants
 {
     float MaxHistory;
     float BlurRadius;
-    uint _pad1;
+    int AtrousStepSize;
     uint _pad2;
 };
 
@@ -91,6 +91,15 @@ float ComputeWorldDepth(float rawDepth)
 float LoadWorldDepth(uint2 pixel)
 {
     return ComputeWorldDepth(DepthBuffer[pixel]);
+}
+
+// result is not normalized!
+float3 ComputeScreenRay(float2 uv)
+{
+    const float ray_x = 1. / ProjMatrix._11;
+    const float ray_y = 1. / ProjMatrix._22;
+    float3 projOffset = float3(ProjMatrix._31 / ProjMatrix._11, ProjMatrix._32 / ProjMatrix._22, 0);
+    return projOffset + float3(lerp(-ray_x, ray_x, uv.x), -lerp(-ray_y, ray_y, uv.y), -1.0);
 }
 
 #endif

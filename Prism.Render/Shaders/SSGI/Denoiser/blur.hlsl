@@ -2,11 +2,6 @@
 
 Texture2D<float4> Source : register(t5);
 
-// values from section 4.4 of the SVGF paper
-static const float SIGMA_Z = 1;
-static const float SIGMA_N = 128;
-static const float SIGMA_LUM = 4;
-
 float ComputeDepthWeight(const float centerDepth, const float neighborDepth, const float fwidth)
 {
     // TODO: compute plane distance based on the center pixel's normal (see reblur slides)
@@ -23,25 +18,12 @@ float ComputeNormalWeight(const float3 centerNormal, const float3 neighborNormal
     return pow(saturate(d), SIGMA_N) * (d > 0.5);
 }
 
-static const float weights[3] = { 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
-
-// Interleaved gradient function from Jimenez 2014 http://goo.gl/eomGso
-float GradientNoise(float2 position)
-{
-    return frac(52.9829189 * frac(dot(position, float2(0.06711056, 0.00583715))));
-}
-
 float2 Rotate(float2 vec, float sinTheta, float cosTheta)
 {
     return float2(
         vec.x * cosTheta - vec.y * sinTheta,
         vec.x * sinTheta + vec.y * cosTheta);
 }
-
-#define ENABLE_BLUR 1
-#define BLEND_WITH_ALBEDO 1
-#define BLEND_WITH_METALNESS 1
-#define VISUALIZE_HISTORY_LENGTH 0 // debug
 
 float3 ApplyBlending(const uint2 pixelPos, float3 color)
 {
@@ -53,6 +35,8 @@ float3 ApplyBlending(const uint2 pixelPos, float3 color)
 #endif
     return color;
 }
+
+#define HQ_BLUR 0
 
 float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out float3 blendedColor : SV_Target1) : SV_Target0
 {
@@ -99,11 +83,14 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
     int spatialIndex = (pixelPos.x % 2) + ((pixelPos.y % 2) * 2);
     
     float radius = Denoiser.BlurRadius;
-    int sampleCount = 16;
+    int sampleCount = HQ_BLUR ? 64 : 16;
     for (int i = 0; i < sampleCount; i++)
     {
-        //float2 offset = poissonDisk[i] * radius;
+#if HQ_BLUR
+        float2 offset = poissonDisk[i] * radius;
+#else
         float2 offset = poissonDisk[i + (sampleCount * ((FrameIndex + spatialIndex) % (64 / sampleCount)))] * radius;
+#endif
         int2 pos = int2(position.xy + offset);
         
         if (any(pos < 0 || pos >= ScreenSize) || all(pos == pixelPos) || !IsForeground(DepthBuffer[pos]))
@@ -131,4 +118,5 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
     
     blendedColor = ApplyBlending(pixelPos, finalColor.xyz);
     return float4(finalColor.xyz, Source[pixelPos].w);
+    //return Source[pixelPos];
 }

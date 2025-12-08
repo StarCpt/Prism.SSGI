@@ -3,6 +3,7 @@ using Prism.Render.Pipeline;
 using Sandbox;
 using Sandbox.Engine.Utils;
 using Sandbox.ModAPI;
+using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
 using SharpDX.Mathematics.Interop;
@@ -46,8 +47,8 @@ public static class SSGIPass
     struct GIConstants
     {
         public float HalfProjScale;
-        public float TemporalOffsets;
-        public float TemporalDirections;
+        private uint _pad1;
+        private uint _pad2;
         public RawBool JitterSamples;
 
         public float GIIntensity;
@@ -66,7 +67,7 @@ public static class SSGIPass
     {
         public float MaxHistory;
         public float BlurRadius;
-        private uint _pad1;
+        public int AtrousStepSize;
         private uint _pad2;
     }
 
@@ -74,18 +75,19 @@ public static class SSGIPass
     static PixelShader? _ps;
     static PixelShader? _psTemporal;
     static PixelShader? _psBlur;
+    static PixelShader? _psSvgfTemporal;
+    static PixelShader? _psSvgfAtrous;
+    static PixelShader? _psSvgfAtrousBlendedOutput;
+    static PixelShader? _psCopyBlend;
     static IConstantBuffer _cbv = null!;
     static IRtvTexture _lbufferCopy = null!;
     static IRtvTexture _historyTexture = null!;
+    static IRtvTexture _prevMomentsAndHistoryLength = null!;
     static IRtvTexture _prevDepthTex = null!;
     static IRtvTexture _prevGBuffer1 = null!;
     // Rtv0: Replace
     // Rtv1: Additive
-    static IBlendState _blendReplaceNoAlpha0Additive1 = null!;
-
-    // From Activision GTAO paper: https://www.activision.com/cdn/research/s2016_pbs_activision_occlusion.pptx
-    static readonly float[] _spatialOffsets = { 0, 0.5f, 0.25f, 0.75f };
-    static readonly float[] _temporalRotations = { 60, 300, 180, 240, 120, 0 };
+    static IBlendState _blendReplace0Additive1 = null!;
 
     static readonly Random _rand = new();
     static Matrix _prevViewMatrix = Matrix.Identity;
@@ -96,6 +98,7 @@ public static class SSGIPass
         Vector2I res = MyRender11.BackBufferResolution;
         _lbufferCopy    = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvLBufferCopy",  res.X, res.Y, Format.R16G16B16A16_Float, mipLevels: 5, optionFlags: ResourceOptionFlags.GenerateMipMaps);
         _historyTexture = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvHistory",      res.X, res.Y, Format.R16G16B16A16_Float);
+        _prevMomentsAndHistoryLength = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevMomentsAndHistoryLength",  res.X, res.Y, Format.R16G16B16A16_Float);
         _prevDepthTex   = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevDepth",    res.X, res.Y, Format.R32_Float);
         _prevGBuffer1   = MyManagers.RwTextures.CreateRtv("Prism.SSGI2.RtvPrevGBuffer1", res.X, res.Y, MyGBuffer.Main.GBuffer1.Format);
 
@@ -106,7 +109,7 @@ public static class SSGIPass
         };
         blendDesc.RenderTarget[0] = MyBlendStateManager.BlendReplace.Description.RenderTarget[0];
         blendDesc.RenderTarget[1] = MyBlendStateManager.BlendAdditive.Description.RenderTarget[0];
-        _blendReplaceNoAlpha0Additive1 = MyManagers.BlendStates.CreateResource("Prism.SSGI2", ref blendDesc);
+        _blendReplace0Additive1 = MyManagers.BlendStates.CreateResource("Prism.SSGI2", ref blendDesc);
 
         ReloadShaders();
     }
@@ -116,13 +119,22 @@ public static class SSGIPass
         _ps?.Dispose();
         _psTemporal?.Dispose();
         _psBlur?.Dispose();
+        _psSvgfTemporal?.Dispose();
+        _psSvgfAtrous?.Dispose();
+        _psSvgfAtrousBlendedOutput?.Dispose();
+        _psCopyBlend?.Dispose();
 
         var compiler = new FileShaderCompiler(Plugin.ShaderDirectory, MyShaderCompiler.ShadersPath);
+        SharpDX.Direct3D11.Device device = MyRender11.RC.DeviceContext.Device;
         try
         {
-            _ps         = compiler.CompilePixel(MyRender11.RC.DeviceContext.Device, "SSGI/ps.hlsl", "ps");
-            _psTemporal = compiler.CompilePixel(MyRender11.RC.DeviceContext.Device, "SSGI/Denoiser/temporal.hlsl", "ps");
-            _psBlur     = compiler.CompilePixel(MyRender11.RC.DeviceContext.Device, "SSGI/Denoiser/blur.hlsl", "ps");
+            _ps                        = compiler.CompilePixel(device, "SSGI/ps.hlsl", "ps");
+            _psTemporal                = compiler.CompilePixel(device, "SSGI/Denoiser/temporal.hlsl", "ps");
+            _psBlur                    = compiler.CompilePixel(device, "SSGI/Denoiser/blur.hlsl", "ps");
+            _psSvgfTemporal            = compiler.CompilePixel(device, "SSGI/Denoiser/temporal.hlsl", "ps", new ShaderMacro("VARIANCE_GUIDED", 1));
+            _psSvgfAtrous              = compiler.CompilePixel(device, "SSGI/Denoiser/atrous.hlsl", "ps", new ShaderMacro("VARIANCE_GUIDED", 1));
+            _psSvgfAtrousBlendedOutput = compiler.CompilePixel(device, "SSGI/Denoiser/atrous.hlsl", "ps", new ShaderMacro("VARIANCE_GUIDED", 1), new ShaderMacro("ENABLE_BLENDED_OUTPUT", 1));
+            _psCopyBlend               = compiler.CompilePixel(device, "SSGI/Denoiser/copyblend.hlsl", "ps", new ShaderMacro("VARIANCE_GUIDED", 1));
 
             _compileError = false;
         }
@@ -145,7 +157,7 @@ public static class SSGIPass
         }
     }
 
-    private static void UpdateCbv(MyRenderContext rc)
+    private static void UpdateCbv(MyRenderContext rc, int atrousStepSize, bool updatePrevMatrices)
     {
         using (var mapping = _cbv.MapWriteDiscard(rc))
         {
@@ -171,9 +183,6 @@ public static class SSGIPass
                 GI = new GIConstants
                 {
                     HalfProjScale = (float)(MyRender11.ResolutionF.Y / (Math.Tan(env.Matrices.FovH * 0.5) * 2) * 0.5),
-                    //TemporalOffsets = _spatialOffsets[(frame / 6) % 4],
-                    TemporalOffsets = _spatialOffsets[frame % 4],
-                    TemporalDirections = _temporalRotations[frame % 6] / 360f, // can help with low sample count scenarios but introduces unwanted flickering
                     JitterSamples = true,
 
                     GIIntensity = MathHelper.Clamp(config.GIIntensity * 2f, 0, 1000),
@@ -191,12 +200,16 @@ public static class SSGIPass
                 {
                     MaxHistory = MathHelper.Clamp(config.DenoiserMaxHistory, 0, 1000),
                     BlurRadius = MathHelper.Clamp(config.DenoiserBlurRadius, 0, 1000),
+                    AtrousStepSize = atrousStepSize,
                 },
             };
             mapping.Write(in data);
         }
 
-        _prevViewMatrix = MyRender11.Environment.Matrices.ViewAt0;
+        if (updatePrevMatrices)
+        {
+            _prevViewMatrix = MyRender11.Environment.Matrices.ViewAt0;
+        }
     }
 
     public static void Run(MyRenderContext rc)
@@ -204,7 +217,7 @@ public static class SSGIPass
         if (_compileError || !Plugin.SSGIConfig.Enabled)
             return;
 
-        UpdateCbv(rc);
+        UpdateCbv(rc, 0, true);
 
         ISrvTexture lightBuffer;
         if (Plugin.SSGIConfig.InputMipLevel > 0)
@@ -237,7 +250,27 @@ public static class SSGIPass
             rc.SetRtvNull();
         }
 
-        IBorrowedRtvTexture tempRtv2 = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtv2", Format.R16G16B16A16_Float);
+        const bool USE_SVGF = true;
+        if (!USE_SVGF)
+        {
+            Denoise(rc, tempRtv, _historyTexture, MyGBuffer.Main.LBuffer);
+        }
+        else
+        {
+            DenoiseVarianceGuided(rc, tempRtv, _historyTexture, MyGBuffer.Main.LBuffer);
+        }
+        tempRtv.Release();
+
+        rc.CopyResource(MyGBuffer.Main.GBuffer1, _prevGBuffer1);
+
+        // note: MyCopyToRT will fuck you over!
+        CopyReplace(rc, MyGBuffer.Main.DepthStencil.SrvDepth, _prevDepthTex);
+        //rc.SetRtvNull();
+    }
+
+    private static void Denoise(MyRenderContext rc, ISrvTexture input, IRtvTexture history, IRtvTexture output)
+    {
+        IBorrowedRtvTexture tempRtv = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtvDenoiser", Format.R16G16B16A16_Float);
 
         // temporal pass
         {
@@ -248,35 +281,118 @@ public static class SSGIPass
             // 7: velocity
             // 8: previous depth
             // 9: previous gbuffer1 (normals + ao)
-            rc.PixelShader.SetSrvs(5, _historyTexture, tempRtv, GBufferVelocity.Get(MyGBuffer.Main), _prevDepthTex, _prevGBuffer1);
-            rc.SetRtv(tempRtv2);
+            rc.PixelShader.SetSrvs(5, history, input, GBufferVelocity.Get(MyGBuffer.Main), _prevDepthTex, _prevGBuffer1);
+            rc.SetRtv(tempRtv);
             MyScreenPass.DrawFullscreenQuad(rc);
             rc.SetRtvNull();
         }
 
         // blur pass
         {
-            rc.SetBlendState(_blendReplaceNoAlpha0Additive1);
+            rc.SetBlendState(_blendReplace0Additive1);
             rc.PixelShader.Set(_psBlur);
-            rc.PixelShader.SetSrv(5, tempRtv2);
-            rc.SetRtvs([_historyTexture.Rtv, MyGBuffer.Main.LBuffer.Rtv]);
+            rc.PixelShader.SetSrv(5, tempRtv);
+            rc.SetRtvs([history.Rtv, output.Rtv]);
             MyScreenPass.DrawFullscreenQuad(rc);
             //rc.SetRtvNull(); // does not need to be finished immediately
         }
 
         tempRtv.Release();
-        tempRtv2.Release();
+    }
 
-        rc.CopyResource(MyGBuffer.Main.GBuffer1, _prevGBuffer1);
+    private static void DenoiseVarianceGuided(MyRenderContext rc, IRtvTexture input, IRtvTexture history, IRtvTexture output)
+    {
+        // color and variance
+        IBorrowedRtvTexture tempRtv = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtvDenoiser", Format.R16G16B16A16_Float);
 
-        // note: MyCopyToRT will fuck you over!
-        CopyReplace(rc, MyGBuffer.Main.DepthStencil.SrvDepth, _prevDepthTex);
-        rc.SetRtvNull();
+        // temporal pass
+        {
+            IBorrowedRtvTexture tempRtvMomentsAndHistoryLength = MyManagers.RwTexturesPool.BorrowRtv("Prism.SSGI2.TempRtvDenoiserVariance", _prevMomentsAndHistoryLength.Format);
+
+            rc.SetBlendState(null);
+            rc.PixelShader.Set(_psSvgfTemporal);
+            // 5: history
+            // 6: noisy input
+            // 7: velocity
+            // 8: previous depth
+            // 9: previous gbuffer1 (normals + ao)
+            // 10: previous moments and history length
+            rc.PixelShader.SetSrvs(5, history, input, GBufferVelocity.Get(MyGBuffer.Main), _prevDepthTex, _prevGBuffer1, _prevMomentsAndHistoryLength);
+            rc.SetRtvs([tempRtv.Rtv, tempRtvMomentsAndHistoryLength.Rtv]);
+            MyScreenPass.DrawFullscreenQuad(rc);
+            rc.SetRtvNull();
+            rc.PixelShader.SetSrv(10, null); // moments
+
+            rc.CopyResource(tempRtvMomentsAndHistoryLength, _prevMomentsAndHistoryLength);
+            tempRtvMomentsAndHistoryLength.Release();
+        }
+
+        // atrous passes
+        int iterations = Plugin.SSGIConfig.DenoiserBlurIterations;
+        if (iterations == 0)
+        {
+            rc.CopyResource(tempRtv, history);
+
+            rc.SetBlendState(MyBlendStateManager.BlendAdditive);
+            rc.PixelShader.Set(_psCopyBlend);
+            rc.PixelShader.SetSrvs(5, history);
+            rc.SetRtv(output);
+            MyScreenPass.DrawFullscreenQuad(rc);
+            rc.SetRtvNull();
+        }
+        else
+        {
+            IRtvTexture atrousInput = tempRtv;
+            IRtvTexture atrousOutput = input;
+
+            for (int i = 0; i < iterations; i++)
+            {
+                UpdateCbv(rc, (1 << (iterations - 1)) >> i, false);
+
+                bool isLastIteration = (i == iterations - 1);
+                if (isLastIteration)
+                {
+                    rc.SetBlendState(_blendReplace0Additive1);
+                    rc.PixelShader.Set(_psSvgfAtrousBlendedOutput);
+                    rc.PixelShader.SetSrvs(5, atrousInput);
+                    rc.SetRtvs([atrousOutput.Rtv, output.Rtv]);
+                }
+                else
+                {
+                    rc.SetBlendState(MyBlendStateManager.BlendReplace);
+                    rc.PixelShader.Set(_psSvgfAtrous);
+                    rc.PixelShader.SetSrvs(5, atrousInput);
+                    rc.SetRtv(atrousOutput);
+                }
+
+                MyScreenPass.DrawFullscreenQuad(rc);
+                rc.SetRtvNull();
+
+                if (i == 0)
+                {
+                    rc.CopyResource(atrousOutput, history);
+                }
+
+                Swap(ref atrousInput, ref atrousOutput);
+            }
+        }
+
+        tempRtv.Release();
+    }
+
+    private static void Swap<T>(ref T a, ref T b)
+    {
+        (a, b) = (b, a);
     }
 
     private static void CopyReplace(MyRenderContext rc, ISrvBindable source, IRtvBindable destination, MyViewport? viewport = null, bool shouldStretch = false)
     {
-        rc.SetBlendState(null);
+        CopyBlend(rc, null, source, destination, viewport, shouldStretch);
+    }
+
+    private static void CopyBlend(MyRenderContext rc, IBlendState? blend, ISrvBindable source, IRtvBindable destination, MyViewport? viewport = null, bool shouldStretch = false)
+    {
+        rc.SetBlendState(blend);
 
         rc.SetInputLayout(null);
         if (source.Size != destination.Size || shouldStretch)

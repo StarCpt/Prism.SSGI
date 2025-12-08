@@ -1,18 +1,33 @@
 #include "bindings.hlsli"
 #include "common.hlsli"
 
-// result is not normalized!
-float3 compute_screen_ray(float2 uv)
+// From Activision GTAO paper: https://www.activision.com/cdn/research/s2016_pbs_activision_occlusion.pptx
+float SpatialOffsets(int2 position)
 {
-    const float ray_x = 1. / ProjMatrix._11;
-    const float ray_y = 1. / ProjMatrix._22;
-    float3 projOffset = float3(ProjMatrix._31 / ProjMatrix._11, ProjMatrix._32 / ProjMatrix._22, 0);
-    return projOffset + float3(lerp(-ray_x, ray_x, uv.x), -lerp(-ray_y, ray_y, uv.y), -1.0);
+    return 0.25 * float((position.y - position.x) & 3);
+}
+
+// From http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
+float rand(float2 uv)
+{
+    float a = 12.9898;
+    float b = 78.233;
+    float c = 43758.5453;
+    float dt = dot(uv.xy, float2(a, b));
+    float sn = fmod(dt, 3.14);
+    return frac(sin(sn) * c);
+}
+
+float2 GTAOFastAcos(float2 x)
+{
+    float2 outVal = -0.156583 * abs(x) + HALF_PI;
+    outVal *= sqrt(1.0 - abs(x));
+    return x >= 0 ? outVal : PI - outVal;
 }
 
 float3 ReconstructViewPosition(float hwDepth, float2 uv)
 {
-    return ComputeWorldDepth(hwDepth) * compute_screen_ray(uv);
+    return ComputeWorldDepth(hwDepth) * ComputeScreenRay(uv);
 }
 
 static const float2 InvScreenSize = 1.0 / ScreenSize;
@@ -75,6 +90,11 @@ float3 HorizonAngle(float3 viewPosition, float3 viewDir, float3 viewNormal, floa
     return light;
 }
 
+static const float spatialOffsets[4] = { 0, 0.5f, 0.25f, 0.75f };
+static const float temporalRotations[6] = { 60 / 360.0, 300 / 360.0, 180 / 360.0, 240 / 360.0, 120 / 360.0, 0 / 360.0 };
+
+#define USE_TEMPORAL_DIRECTIONS 0 // can help with low sample count scenarios but introduces unwanted flickering
+
 float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_Target
 {
     uint2 pixelPos = position.xy;
@@ -90,7 +110,11 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     
     float noiseOffset = SpatialOffsets(pixelPos); // doesn't seem to do anything
     float noiseDirection = GradientNoise(pixelPos);
-    float initialStep = frac(noiseOffset + GI.TemporalOffsets) + rand(uv) * GI.JitterSamples;
+#if USE_TEMPORAL_DIRECTIONS
+    float initialStep = spatialOffsets[(FrameIndex / 6) % 4] + rand(uv) * GI.JitterSamples;
+#else
+    float initialStep = spatialOffsets[FrameIndex % 4] + rand(uv) * GI.JitterSamples;
+#endif
     float stepSize = max(GI.Radius * GI.HalfProjScale / -viewPosition.z, GI.StepCount) / float(GI.StepCount + 1); // in pixels
     
     float ambientOcclusion = 0;
@@ -98,7 +122,11 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     for (int slice = 0; slice < GI.SliceCount; slice++)
     {
         // 0 to 180 degrees, each slice covers the 180* 'opposite' direction
-        float angleInRadians = PI * (float(slice + noiseDirection /*+ GI.TemporalDirections*/) / float(GI.SliceCount));
+#if USE_TEMPORAL_DIRECTIONS
+        float angleInRadians = PI * (float(slice + noiseDirection + temporalRotations[FrameIndex % 6]) / float(GI.SliceCount));
+#else
+        float angleInRadians = PI * (float(slice + noiseDirection) / float(GI.SliceCount));
+#endif
         
         float2 rayDir; // screenspace slice tangent
         sincos(angleInRadians, rayDir.y, rayDir.x);

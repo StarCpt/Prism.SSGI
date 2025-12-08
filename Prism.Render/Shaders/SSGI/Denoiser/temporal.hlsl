@@ -5,6 +5,9 @@ Texture2D<float3> Source       : register(t6);
 Texture2D<float3> velocityTex  : register(t7);
 Texture2D<float> prevDepthTex  : register(t8);
 Texture2D<float4> prevGBuffer1 : register(t9);
+#if VARIANCE_GUIDED
+Texture2D<float4> prevMomentsAndHistoryLength : register(t10);
+#endif
 
 float3 ReprojectPrevViewNormal(float3 prevViewNormal)
 {
@@ -13,19 +16,10 @@ float3 ReprojectPrevViewNormal(float3 prevViewNormal)
     return mul(invView, prevWorldNormal);
 }
 
-// result is not normalized!
-float3 compute_screen_ray(float2 uv)
+float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out float3 momentsAndHistoryLength : SV_Target1) : SV_Target0
 {
-    const float ray_x = 1. / ProjMatrix._11;
-    const float ray_y = 1. / ProjMatrix._22;
-    float3 projOffset = float3(ProjMatrix._31 / ProjMatrix._11, ProjMatrix._32 / ProjMatrix._22, 0);
-    return projOffset + float3(lerp(-ray_x, ray_x, uv.x), -lerp(-ray_y, ray_y, uv.y), -1.0);
-}
-
-#define ENABLE_TEMPORAL 1
-
-float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_Target
-{
+    momentsAndHistoryLength = 0;
+    
 #if VISUALIZE_MOTION
     return float4(abs(velocityTex[position.xy].xy) * 500 * isfinite(velocityTex[position.xy].xy), 0, 1);
 #endif
@@ -38,7 +32,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     const float rawDepth = DepthBuffer[pixelPos];
     if (!IsForeground(rawDepth))
     {
-        return float4(Source[pixelPos].xyz, 0);
+        return 0;
     }
     
     const float3 motion = velocityTex[pixelPos];
@@ -51,7 +45,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     const float weights[4] = { (1 - xyf.x) * (1 - xyf.y), xyf.x * (1 - xyf.y), (1 - xyf.x) * xyf.y, xyf.x * xyf.y };
     
     float depthZ = ComputeWorldDepth(rawDepth);
-    float3 viewDir = -normalize(compute_screen_ray(uv));
+    float3 viewDir = -normalize(ComputeScreenRay(uv));
     float3 viewNormal = LoadViewNormal(pixelPos);
     
     const float dot_ray_surface_inv = 1.0 / clamp(dot(viewDir, viewNormal), 0.1, 1);
@@ -86,7 +80,11 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
             continue;
         
         weightSum += weights[i];
+#if !VARIANCE_GUIDED
         historySum += weights[i] * History[offsetPos];
+#else
+        historySum += weights[i] * float4(History[offsetPos].xyz, prevMomentsAndHistoryLength[offsetPos].z);
+#endif
     }
     
     // xyz = color, w = history
@@ -95,7 +93,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
     history.w += 1.0;
     
     // from the reblur slides - use blurred input if history is lacking
-    float mip = max(0, -(history.w - min(3, Denoiser.MaxHistory)));
+    float mip = max(0, -(history.w - min(4, Denoiser.MaxHistory)));
     float3 currentColor;
     [branch]
     if (mip >= 1)
@@ -127,6 +125,20 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD) : SV_
         currentColor = Source.SampleLevel(PointSampler, uv, 0);
     }
     
-    float3 finalColor = lerp(history.xyz, currentColor, 1.0 / history.w);
+    float alpha = 1.0 / history.w;
+    
+    float3 finalColor = lerp(history.xyz, currentColor, alpha);
+    finalColor = isfinite(finalColor) ? finalColor : 0;
+    
+#if !VARIANCE_GUIDED
     return float4(finalColor, history.w);
+#else
+    float2 moments;
+    moments.x = luminance(currentColor);
+    moments.y = sq(moments.x);
+    moments = lerp(prevMomentsAndHistoryLength[pixelPos].xy, moments, alpha);
+    momentsAndHistoryLength = float3(moments, history.w);
+    float variance = abs(momentsAndHistoryLength.y - sq(momentsAndHistoryLength.x));
+    return float4(finalColor, variance);
+#endif
 }

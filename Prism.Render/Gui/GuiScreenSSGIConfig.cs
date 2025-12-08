@@ -52,8 +52,8 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
         public float Radius;
         public float ExpFactor;
         public float Thickness;
-        public float DenoiserMaxHistory;
-        public float DenoiserBlurRadius;
+        public int DenoiserMaxHistory;
+        public int DenoiserBlurIterations;
 
         public void ApplyTo(GuiScreenSSGIConfig target)
         {
@@ -65,7 +65,7 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
             ((MyGuiControlSlider)target._controlsByPropertyName["ExpFactor"])         .Value = ExpFactor;
             ((MyGuiControlSlider)target._controlsByPropertyName["Thickness"])         .Value = Thickness;
             ((MyGuiControlSlider)target._controlsByPropertyName["DenoiserMaxHistory"]).Value = DenoiserMaxHistory;
-            ((MyGuiControlSlider)target._controlsByPropertyName["DenoiserBlurRadius"]).Value = DenoiserBlurRadius;
+            ((MyGuiControlSlider)target._controlsByPropertyName["DenoiserBlurIterations"]).Value = DenoiserBlurIterations;
         }
     }
 
@@ -81,7 +81,7 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
             ExpFactor = 1.5f,
             Thickness = 1.0f,
             DenoiserMaxHistory = 24,
-            DenoiserBlurRadius = 16,
+            DenoiserBlurIterations = 5,
         },
         new PresetData // medium
         {
@@ -93,7 +93,7 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
             ExpFactor = 1.5f,
             Thickness = 1.0f,
             DenoiserMaxHistory = 20,
-            DenoiserBlurRadius = 16,
+            DenoiserBlurIterations = 5,
         },
         new PresetData // high
         {
@@ -105,7 +105,7 @@ public class GuiScreenSSGIConfig : MyGuiScreenBase
             ExpFactor = 1.5f,
             Thickness = 1.0f,
             DenoiserMaxHistory = 20,
-            DenoiserBlurRadius = 16,
+            DenoiserBlurIterations = 4,
         },
     };
 
