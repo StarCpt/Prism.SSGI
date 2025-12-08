@@ -78,11 +78,15 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
     const float centerDepth = LoadWorldDepth(pixelPos);
     const float3 centerNormal = LoadViewNormal(pixelPos);
     const float3 centerColor = ColorAndVariance[pixelPos].xyz;
+    const float centerLum = luminance(centerColor);
     const float centerVariance = ComputeFilteredVariance(pixelPos);
     
     float totalWeight = 1;
     float3 totalColor = centerColor;
     float totalVariance = centerVariance;
+    
+    float neighborLum = 0;
+    float neighborLumMax = 0;
     
     float phiDepth = 1; // PLACEHOLDER
     float phiNormal = SIGMA_N;
@@ -101,19 +105,23 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
             const float depth = LoadWorldDepth(samplePos);
             const float3 normal = LoadViewNormal(samplePos);
             const float3 color = ColorAndVariance[samplePos].xyz;
+            const float lum = luminance(color);
             const float variance = ColorAndVariance[samplePos].w;
             
             const float kernelWeight = weights[abs(x)] * weights[abs(y)];
             const float edgeWeight = ComputeEdgeWeight(
                 centerDepth, depth, phiDepth,
                 centerNormal, normal, phiNormal,
-                luminance(centerColor), luminance(color), phiIllumination);
+                centerLum, lum, phiIllumination);
             
             float weight = kernelWeight * edgeWeight;
-
+            
             totalWeight += weight;
             totalColor += color * weight;
             totalVariance += variance * sq(weight);
+            
+            neighborLum += lum;
+            neighborLumMax = max(neighborLumMax, lum);
         }
     }
     
@@ -121,7 +129,12 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
     float finalVariance = totalVariance / sq(totalWeight);
     
 #if ENABLE_BLENDED_OUTPUT
-    blendedColor = ApplyBlending(pixelPos, finalColor);
+    // clamp max luminance (firefly reduction)
+    float maxLuminance = max(0, neighborLum / 24 * 2);
+    //float maxLuminance = neighborLumMax * 1.5;
+    float luminanceWeight = saturate(maxLuminance / centerLum);
+    
+    blendedColor = ApplyBlending(pixelPos, finalColor) * luminanceWeight;
 #endif
     return float4(finalColor, finalVariance);
 }
