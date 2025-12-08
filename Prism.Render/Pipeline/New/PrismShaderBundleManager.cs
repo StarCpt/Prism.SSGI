@@ -143,13 +143,11 @@ public static class PrismShaderBundleManager
         }
     }
 
-    public static readonly FileShaderCompiler _compiler = new("", MyShaderCompiler.ShadersPath);
-
     static byte[] CompileVertex(ref MyShaderCompilationInfo info, bool invalidateCache = false)
     {
         if (info.File.String.StartsWith(Plugin.ShaderDirectory))
         {
-            return _compiler.CompileVertexBytecode(info.File.String, "vs", info.Macros);
+            return Plugin.ShaderCompiler.CompileVertexBytecode(info.File.String, "vs", info.Macros);
         }
         return MyShaderCompiler.Compile(ref info, invalidateCache);
     }
@@ -158,7 +156,7 @@ public static class PrismShaderBundleManager
     {
         if (info.File.String.StartsWith(Plugin.ShaderDirectory))
         {
-            return _compiler.CompilePixelBytecode(info.File.String, "ps", info.Macros);
+            return Plugin.ShaderCompiler.CompilePixelBytecode(info.File.String, "ps", info.Macros);
         }
         return MyShaderCompiler.Compile(ref info, invalidateCache);
     }

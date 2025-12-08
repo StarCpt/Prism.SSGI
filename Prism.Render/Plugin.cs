@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using Prism.Common;
 using Prism.Render.Config;
 using Prism.Render.Gui;
 using Prism.Render.Patches;
@@ -26,13 +27,16 @@ public class Plugin : IPlugin
 {
     public static string? ShaderDirectory { get; private set; }
     public static SSGIConfig SSGIConfig { get; private set; } = null!;
+    public static FileShaderCompiler ShaderCompiler { get; private set; }
 
     public Plugin()
     {
 #if DEV
         ShaderDirectory = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Shaders");
 #endif
-        SSGIConfig = SSGIConfig.LoadOrCreate(Path.Combine(MyFileSystem.UserDataPath, "Storage", "Prism", "ssgi2.json"));
+        string storageDirectory = Path.Combine(MyFileSystem.UserDataPath, "Storage", "Prism");
+        SSGIConfig = SSGIConfig.LoadOrCreate(Path.Combine(storageDirectory, "ssgi2.json"));
+        ShaderCompiler = new FileShaderCompiler("", MyShaderCompiler.ShadersPath, Path.Combine(storageDirectory, "ShaderCache"));
 
         RegisterTypes();
         GBufferVelocity.Init();

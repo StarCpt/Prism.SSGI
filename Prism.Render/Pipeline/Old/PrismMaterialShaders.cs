@@ -114,11 +114,11 @@ public static class PrismMaterialShaders
         {
             if (profile is MyShaderProfile.vs_5_0)
             {
-                return PrismShaderBundleManager._compiler.CompileVertexBytecode(filePath, "vs", macros);
+                return Plugin.ShaderCompiler.CompileVertexBytecode(filePath, "vs", macros);
             }
             else // if (profile is MyShaderProfile.ps_5_0
             {
-                return PrismShaderBundleManager._compiler.CompilePixelBytecode(filePath, "ps", macros);
+                return Plugin.ShaderCompiler.CompilePixelBytecode(filePath, "ps", macros);
             }
         }
         else
