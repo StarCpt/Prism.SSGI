@@ -217,6 +217,9 @@ public static class SSGIPass
         if (_compileError || !Plugin.SSGIConfig.Enabled)
             return;
 
+        if (Plugin.IsCameraLcdDrawing || Plugin.IsTargetCameraDrawing)
+            return;
+
         UpdateCbv(rc, 0, true);
 
         ISrvTexture lightBuffer;

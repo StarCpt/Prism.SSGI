@@ -29,6 +29,9 @@ public class Plugin : IPlugin
     public static SSGIConfig SSGIConfig { get; private set; } = null!;
     public static FileShaderCompiler ShaderCompiler { get; private set; }
 
+    public static bool IsCameraLcdDrawing;
+    public static bool IsTargetCameraDrawing;
+
     public Plugin()
     {
 #if DEV

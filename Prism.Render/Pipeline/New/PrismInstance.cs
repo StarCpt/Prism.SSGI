@@ -15,6 +15,9 @@ public class PrismInstance : MyInstance
         [HarmonyPostfix]
         static unsafe void MyPreparePass_PrismColorPreparePass0_MyColorPreparePass1_Perform_Postfix(MyList<MyInstance> ___m_visibleInstances)
         {
+            if (Plugin.IsCameraLcdDrawing || Plugin.IsTargetCameraDrawing)
+                return;
+
             // all MyInstance objects's real type *should* be PrismInstance but this is still sketchy
             PrismInstance[] visibleInstances = Unsafe.As<PrismInstance[]>(___m_visibleInstances.GetInternalArray());
             int instanceCount = ___m_visibleInstances.Count;
