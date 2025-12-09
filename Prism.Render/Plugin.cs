@@ -32,7 +32,7 @@ public class Plugin : IPlugin
     public static bool IsCameraLcdDrawing;
     public static bool IsTargetCameraDrawing;
 
-    public Plugin()
+    public void Init(object gameInstance)
     {
 #if DEV
         ShaderDirectory = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Shaders");
@@ -47,10 +47,6 @@ public class Plugin : IPlugin
         SSGIPass.Init();
 
         new Harmony(GetType().FullName).PatchAll(Assembly.GetExecutingAssembly());
-    }
-
-    public void Init(object gameInstance)
-    {
     }
 
     private static void RegisterTypes()

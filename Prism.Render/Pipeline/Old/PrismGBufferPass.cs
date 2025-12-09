@@ -1,8 +1,8 @@
-﻿using Prism.Render.Patches;
+﻿using HarmonyLib;
+using Prism.Render.Patches;
 using SharpDX.Direct3D11;
 using System;
-using System.Drawing;
-using VRage;
+using System.Reflection;
 using VRage.Render11.Resources;
 using VRageRender;
 
@@ -10,6 +10,45 @@ namespace Prism.Render.Pipeline.Old;
 
 public class PrismGBufferPass : MyRenderingPass
 {
+    [HarmonyPatch]
+    static class Patches
+    {
+        [HarmonyPatch(typeof(MyRenderingPass), "Begin")]
+        [HarmonyPostfix]
+        public static void Begin_Postfix(MyRenderingPass __instance)
+        {
+            if (__instance is PrismGBufferPass @this)
+            {
+                @this.Begin();
+            }
+        }
+
+        [HarmonyPatch(typeof(MyRenderingPass), "Fork")]
+        [HarmonyPostfix]
+        public static void Fork_Postfix(MyRenderingPass __instance, ref MyRenderingPass __result)
+        {
+            if (__instance is PrismGBufferPass @this)
+            {
+                @this.Fork(ref __result);
+            }
+        }
+
+        [HarmonyPatch]
+        public static class Patch_Cleanup
+        {
+            public static MethodInfo TargetMethod() => AccessTools.FirstMethod(typeof(MyRenderingPass), static m => m.Name == "Cleanup");
+
+            [HarmonyPostfix]
+            public static void Cleanup_Postfix(MyRenderingPass __instance)
+            {
+                if (__instance is PrismGBufferPass @this)
+                {
+                    @this.Cleanup();
+                }
+            }
+        }
+    }
+
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public MyGBuffer GBuffer;
     public IRtvTexture VelocityBuffer;
@@ -17,9 +56,9 @@ public class PrismGBufferPass : MyRenderingPass
 
     private readonly RenderTargetView[] _rtvs = new RenderTargetView[4];
 
-    public override void Begin()
+    public new void Begin()
     {
-        base.Begin();
+        //base.Begin();
         Locals.BindConstantBuffersBatched = true;
 
         RC.VertexShader.SetConstantBuffer(4, Patch_MyRenderScheduler.PrismRenderConstants);
@@ -34,16 +73,20 @@ public class PrismGBufferPass : MyRenderingPass
         Array.Clear(_rtvs, 0, _rtvs.Length);
     }
 
-    public override void End()
-    {
-        base.End();
-    }
+    //public override void End()
+    //{
+    //    base.End();
+    //}
 
     // the original RecordCommandsInternal methods have stereo rendering code
-    // but I removed it here since other parts of the SE pipeline doesn't support it anyways
-    // for ex afait the MyInstance renderer (new geometry pipeline) fully ditched stereo rendering support
+    // but I removed it here since other parts of the SE pipeline don't support it anyway
+    // for ex afaict the MyInstance renderer (new geometry pipeline) fully ditched stereo rendering support
 
+#if DEV
     public override void RecordCommandsInternal(MyRenderableProxy proxy)
+#else
+    protected override void RecordCommandsInternal(MyRenderableProxy proxy)
+#endif
     {
         SetProxyConstants(proxy);
 
@@ -104,7 +147,11 @@ public class PrismGBufferPass : MyRenderingPass
         Stats.Draws++;
     }
 
+#if DEV
     public override void RecordCommandsInternal(ref MyRenderableProxy_2 proxy, int instance, int section)
+#else
+    protected override void RecordCommandsInternal(ref MyRenderableProxy_2 proxy, int instance, int section)
+#endif
     {
         // shaders not implemented
         throw new NotImplementedException();
@@ -145,18 +192,18 @@ public class PrismGBufferPass : MyRenderingPass
         }
     }
 
-    public override void Cleanup()
+    public new void Cleanup()
     {
-        base.Cleanup();
+        //base.Cleanup();
         GBuffer = null!;
         VelocityBuffer = null!;
     }
 
-    public override MyRenderingPass Fork()
+    public void Fork(ref MyRenderingPass result)
     {
-        PrismGBufferPass clone = (PrismGBufferPass)base.Fork();
+        PrismGBufferPass clone = (PrismGBufferPass)result; //PrismGBufferPass clone = (PrismGBufferPass)base.Fork();
         clone.GBuffer = GBuffer;
         clone.VelocityBuffer = VelocityBuffer;
-        return clone;
+        //return clone;
     }
 }

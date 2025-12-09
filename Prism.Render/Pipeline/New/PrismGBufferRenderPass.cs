@@ -20,7 +20,11 @@ public class PrismGBufferRenderPass : MyGBufferRenderPass
     private readonly RenderTargetView[] _rtvs = new RenderTargetView[4];
     public IRtvTexture VelocityBuffer = null!;
 
+#if DEV
     public override void BeginDraw(MyRenderContext RC)
+#else
+    protected override void BeginDraw(MyRenderContext RC)
+#endif
     {
         base.BeginDraw(RC);
 
@@ -41,7 +45,11 @@ public class PrismGBufferRenderPass : MyGBufferRenderPass
     /// </summary>
     /// <param name="RC"></param>
     /// <param name="itGroup"></param>
+#if DEV
     public override void DrawInstanceLodGroup(MyRenderContext RC, MyInstanceLodGroup itGroup)
+#else
+    protected override void DrawInstanceLodGroup(MyRenderContext RC, MyInstanceLodGroup itGroup)
+#endif
     {
         if (itGroup.Lod.PreprocessedParts is not PrismPreprocessedParts)
         {
