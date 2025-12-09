@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using Prism.Maths;
+using System;
 using System.Runtime.CompilerServices;
 using VRage.Render11.Culling;
 using VRage.Render11.GeometryStage2.Instancing;
@@ -53,7 +54,12 @@ public class PrismRenderableProxy : MyRenderableProxy
         static unsafe void MyRenderableProxy_UpdateObjectBuffer_Postfix(MyRenderableProxy __instance, ref MyMapping mapping)
         {
             var renderableProxy = (PrismRenderableProxy)__instance;
-            mapping.Position(__instance.ObjectBufferSize - sizeof(RowMatrix));
+            if (__instance.SkinningMatrices != null)
+            {
+                int skinningMatricesWritten = __instance.DrawSubmesh.BonesMapping == null ? Math.Min(60, __instance.SkinningMatrices.Length) : __instance.DrawSubmesh.BonesMapping.Length;
+                int bytesToOffset = (60 - skinningMatricesWritten) * sizeof(Matrix);
+                mapping.Offset(bytesToOffset);
+            }
             mapping.WriteAndPosition(ref renderableProxy.PrevMatrix);
         }
 

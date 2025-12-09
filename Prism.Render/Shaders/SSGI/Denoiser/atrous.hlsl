@@ -68,6 +68,20 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
 {
     const int2 pixelPos = position.xy;
     
+#if VISUALIZE_HISTORY_LENGTH
+#if ENABLE_BLENDED_OUTPUT
+    blendedColor = float4(ColorAndVariance[pixelPos].www / Denoiser.MaxHistory * 50, 1);
+#endif
+    return ColorAndVariance[pixelPos];
+#endif // VISUALIZE_HISTORY_LENGTH
+    
+#if VISUALIZE_MOTION
+#if ENABLE_BLENDED_OUTPUT
+    blendedColor = ColorAndVariance[pixelPos].xyz;
+#endif
+    return ColorAndVariance[pixelPos];
+#endif
+    
     if (!IsForeground(DepthBuffer[pixelPos]))
     {
 #if ENABLE_BLENDED_OUTPUT
