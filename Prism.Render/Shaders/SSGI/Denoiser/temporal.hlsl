@@ -133,6 +133,12 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
 #if !VARIANCE_GUIDED
     return float4(finalColor, history.w);
 #else
+    
+#if VISUALIZE_HISTORY_LENGTH
+    momentsAndHistoryLength = history.w;
+    return history.w;
+#endif
+    
     float2 moments;
     moments.x = luminance(currentColor);
     moments.y = sq(moments.x);
