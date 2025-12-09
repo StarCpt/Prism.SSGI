@@ -48,7 +48,10 @@ float4 ComputeVelocity(PrismVertexStageOutput input)
     vel.xy = input.CurrClipPos.xy - input.PrevClipPos.xy;
     vel.xy = vel.xy * 0.5 * float2(1, -1);
     vel.z = (compute_depth(input.CurrClipPos.z) - compute_depth(input.PrevClipPos.z)) / Farplane;
-    vel.w = 0;
+    
+    // depth gradient
+    float z = compute_depth(input.CurrClipPos.z);
+    vel.w = max(abs(ddx(z)), abs(ddy(z)));
     return vel;
 }
 

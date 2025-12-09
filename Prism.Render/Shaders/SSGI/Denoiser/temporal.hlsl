@@ -138,7 +138,9 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD, out f
     moments.y = sq(moments.x);
     moments = lerp(prevMomentsAndHistoryLength[pixelPos].xy, moments, alpha);
     momentsAndHistoryLength = float3(moments, history.w);
-    float variance = abs(momentsAndHistoryLength.y - sq(momentsAndHistoryLength.x));
+    // we need to artificially introduce variance since
+    // SVGF doesn't do well with temporally stable, zero variance input
+    float variance = abs(momentsAndHistoryLength.y - sq(momentsAndHistoryLength.x)) + 0.05;
     return float4(finalColor, variance);
 #endif
 }

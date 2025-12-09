@@ -15,7 +15,7 @@
 // values from section 4.4 of the SVGF paper
 static const float SIGMA_Z = 1;
 static const float SIGMA_N = 128;
-static const float SIGMA_LUM = 4;
+static const float SIGMA_LUM = 10;
 
 // https://www.geeks3d.com/20100628/3d-programming-ready-to-use-64-sample-poisson-disc/
 static const float2 poissonDisk[64] =

@@ -347,6 +347,7 @@ public static class SSGIPass
         {
             IRtvTexture atrousInput = tempRtv;
             IRtvTexture atrousOutput = input;
+            IRtvTexture gbufferVelocity = GBufferVelocity.Get(MyGBuffer.Main);
 
             for (int i = 0; i < iterations; i++)
             {
@@ -357,14 +358,14 @@ public static class SSGIPass
                 {
                     rc.SetBlendState(_blendReplace0Additive1);
                     rc.PixelShader.Set(_psSvgfAtrousBlendedOutput);
-                    rc.PixelShader.SetSrvs(5, atrousInput);
+                    rc.PixelShader.SetSrvs(5, atrousInput, gbufferVelocity);
                     rc.SetRtvs([atrousOutput.Rtv, output.Rtv]);
                 }
                 else
                 {
                     rc.SetBlendState(MyBlendStateManager.BlendReplace);
                     rc.PixelShader.Set(_psSvgfAtrous);
-                    rc.PixelShader.SetSrvs(5, atrousInput);
+                    rc.PixelShader.SetSrvs(5, atrousInput, gbufferVelocity);
                     rc.SetRtv(atrousOutput);
                 }
 

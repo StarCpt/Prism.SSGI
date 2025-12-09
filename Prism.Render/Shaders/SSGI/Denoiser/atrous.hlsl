@@ -1,6 +1,7 @@
 #include "common.hlsli"
 
 Texture2D<float4> ColorAndVariance : register(t5);
+Texture2D<float4> GBufferVelocity : register(t6);
 
 // filter variance using a 3x3 gaussian kernel
 float ComputeFilteredVariance(const int2 centerPixelPos)
@@ -41,7 +42,7 @@ float ComputeEdgeWeight(
     wDepth = max(0, wDepth);
     wLuminance = max(0, wLuminance);
     
-    float edgeWeight = exp(-wLuminance - wDepth) * wNormal;
+    float edgeWeight = exp(0 - wLuminance - wDepth) * wNormal;
     return edgeWeight;
 }
 
@@ -88,9 +89,9 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
     float neighborLum = 0;
     float neighborLumMax = 0;
     
-    float phiDepth = 1; // PLACEHOLDER
+    float phiDepth = max(GBufferVelocity[pixelPos].w, 1e-8) * Denoiser.AtrousStepSize;
     float phiNormal = SIGMA_N;
-    float phiIllumination = SIGMA_LUM * max(1, sqrt(max(0, centerVariance + 1e-10)));
+    float phiIllumination = SIGMA_LUM * sqrt(max(0, centerVariance + 1e-10));
     
     static const int radius = 2;
     for (int y = -radius; y <= radius; y++)
@@ -110,7 +111,7 @@ float4 ps(const float4 position : SV_Position, const float2 uv : TEXCOORD
             
             const float kernelWeight = weights[abs(x)] * weights[abs(y)];
             const float edgeWeight = ComputeEdgeWeight(
-                centerDepth, depth, phiDepth,
+                centerDepth, depth, phiDepth * length(float2(x, y)),
                 centerNormal, normal, phiNormal,
                 centerLum, lum, phiIllumination);
             
