@@ -96,7 +96,7 @@ public class PrismGBufferPass : MyRenderingPass
         }
         else
         {
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
 
         BindProxyGeometry(proxy);
@@ -153,8 +153,7 @@ public class PrismGBufferPass : MyRenderingPass
     protected override void RecordCommandsInternal(ref MyRenderableProxy_2 proxy, int instance, int section)
 #endif
     {
-        // shaders not implemented
-        throw new NotImplementedException();
+        // TODO: setup velocity gbuffer shaders
         MyRenderUtils.SetSrvs(RC, ref proxy.ObjectSrvs);
         MyRenderUtils.BindShaderBundle(RC, proxy.Shaders.MultiInstance);
         RC.SetDepthStencilState(MyDepthStencilStateManager.DepthTestWrite);
