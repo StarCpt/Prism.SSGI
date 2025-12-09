@@ -372,7 +372,8 @@ public static class SSGIPass
                 MyScreenPass.DrawFullscreenQuad(rc);
                 rc.SetRtvNull();
 
-                if (i == 0)
+                //if (i == 0)
+                if (isLastIteration)
                 {
                     rc.CopyResource(atrousOutput, history);
                 }
