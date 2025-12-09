@@ -18,8 +18,8 @@ using VRage.Render11.GeometryStage2.Instancing;
 using VRage.Render11.GeometryStage2.PreparePass;
 using VRageRender;
 
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
 
 namespace Prism.Render;
 
