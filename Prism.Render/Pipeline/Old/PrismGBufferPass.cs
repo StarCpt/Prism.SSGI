@@ -3,6 +3,7 @@ using Prism.Render.Patches;
 using SharpDX.Direct3D11;
 using System;
 using System.Reflection;
+using VRage;
 using VRage.Render11.Resources;
 using VRageRender;
 
@@ -30,6 +31,18 @@ public class PrismGBufferPass : MyRenderingPass
             if (__instance is PrismGBufferPass @this)
             {
                 @this.Fork(ref __result);
+            }
+        }
+
+        [HarmonyPatch(typeof(MyRenderingPass), "RecordCommands", [ typeof(MyRenderableProxy), typeof(IConstantBuffer), typeof(int) ])]
+        [HarmonyPrefix]
+        public static void RecordCommands_Prefix(MyRenderingPass __instance, MyRenderableProxy proxy, IConstantBuffer cb, int constantOffset)
+        {
+            if (__instance.Locals.BindConstantBuffersBatched && __instance is PrismGBufferPass @this)
+            {
+                int size = proxy.ObjectBufferSizeAligned;
+                MyVRage.Platform.Render.FastVSSetConstantBuffers1(@this.RC.DeviceContext, 7, cb.Buffer, constantOffset / 16, size / 16, ref @this.m_constantBindingsCache);
+                MyVRage.Platform.Render.FastPSSetConstantBuffers1(@this.RC.DeviceContext, 7, cb.Buffer, constantOffset / 16, size / 16, ref @this.m_constantBindingsCache);
             }
         }
 
