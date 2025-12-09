@@ -9,7 +9,7 @@
 #define ENABLE_BLUR 1
 #define BLEND_WITH_ALBEDO 1
 #define BLEND_WITH_METALNESS 1
-#define VISUALIZE_HISTORY_LENGTH 1
+#define VISUALIZE_HISTORY_LENGTH 0
 #define VISUALIZE_MOTION 0
 
 // values from section 4.4 of the SVGF paper
