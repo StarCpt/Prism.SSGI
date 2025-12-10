@@ -46,7 +46,10 @@ public class Plugin : IPlugin
         Patch_MyRenderScheduler.Init();
         SSGIPass.Init();
 
-        new Harmony(GetType().FullName).PatchAll(Assembly.GetExecutingAssembly());
+        Harmony harmony = new Harmony(GetType().FullName);
+        harmony.PatchAll(Assembly.GetExecutingAssembly());
+
+        OverridePatchFactory.Init(harmony);
     }
 
     private static void RegisterTypes()

@@ -9,21 +9,13 @@ using VRageRender;
 
 namespace Prism.Render.Pipeline.Old;
 
+// don't tag this class with [HarmonyPatch], if you do it thinks there's a patch for the [virtual System.Void VRageRender.MyRenderingPass::Cleanup()] method,
+// even if there's no patches in this class
 public class PrismGBufferPass : MyRenderingPass
 {
     [HarmonyPatch]
     static class Patches
     {
-        [HarmonyPatch(typeof(MyRenderingPass), "Begin")]
-        [HarmonyPostfix]
-        public static void Begin_Postfix(MyRenderingPass __instance)
-        {
-            if (__instance is PrismGBufferPass @this)
-            {
-                @this.Begin();
-            }
-        }
-
         [HarmonyPatch(typeof(MyRenderingPass), "Fork")]
         [HarmonyPostfix]
         public static void Fork_Postfix(MyRenderingPass __instance, ref MyRenderingPass __result)
@@ -45,21 +37,6 @@ public class PrismGBufferPass : MyRenderingPass
                 MyVRage.Platform.Render.FastPSSetConstantBuffers1(@this.RC.DeviceContext, 7, cb.Buffer, constantOffset / 16, size / 16, ref @this.m_constantBindingsCache);
             }
         }
-
-        [HarmonyPatch]
-        public static class Patch_Cleanup
-        {
-            public static MethodInfo TargetMethod() => AccessTools.FirstMethod(typeof(MyRenderingPass), static m => m.Name == "Cleanup");
-
-            [HarmonyPostfix]
-            public static void Cleanup_Postfix(MyRenderingPass __instance)
-            {
-                if (__instance is PrismGBufferPass @this)
-                {
-                    @this.Cleanup();
-                }
-            }
-        }
     }
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
@@ -69,6 +46,7 @@ public class PrismGBufferPass : MyRenderingPass
 
     private readonly RenderTargetView[] _rtvs = new RenderTargetView[4];
 
+    [OverrideAfter]
     public new void Begin()
     {
         //base.Begin();
@@ -106,10 +84,6 @@ public class PrismGBufferPass : MyRenderingPass
         if (!Locals.BindConstantBuffersBatched)
         {
             RC.VertexShader.SetConstantBuffer(7, proxy.GetObjectBuffer(RC));
-        }
-        else
-        {
-            //throw new NotImplementedException();
         }
 
         BindProxyGeometry(proxy);
@@ -204,6 +178,7 @@ public class PrismGBufferPass : MyRenderingPass
         }
     }
 
+    [OverrideAfter]
     public new void Cleanup()
     {
         //base.Cleanup();
