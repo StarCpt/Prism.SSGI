@@ -108,4 +108,21 @@ public static class Extensions
     {
         return ref Unsafe.As<Vector4, RowMatrix>(ref data.m_row0);
     }
+
+    const nint Offset_VSSetConstantBuffers1 = 119;
+    const nint Offset_PSSetConstantBuffers1 = 123;
+
+    public static unsafe void VSSetConstantBuffer(this DeviceContext1 context, int slot, Buffer? cbuffer, int firstConstant, int numConstants)
+    {
+        IntPtr cbPtr = cbuffer?.NativePointer ?? IntPtr.Zero;
+        ((delegate* unmanaged[Stdcall]<void*, int, int, void*, void*, void*, void>)(*(IntPtr*)((*(IntPtr*)context.NativePointer) + Offset_VSSetConstantBuffers1 * sizeof(void*))))
+            ((void*)context.NativePointer, slot, 1, &cbPtr, &firstConstant, &numConstants);
+    }
+
+    public static unsafe void PSSetConstantBuffer(this DeviceContext1 context, int slot, Buffer? cbuffer, int firstConstant, int numConstants)
+    {
+        IntPtr cbPtr = cbuffer?.NativePointer ?? IntPtr.Zero;
+        ((delegate* unmanaged[Stdcall]<void*, int, int, void*, void*, void*, void>)(*(IntPtr*)((*(IntPtr*)context.NativePointer) + Offset_PSSetConstantBuffers1 * sizeof(void*))))
+            ((void*)context.NativePointer, slot, 1, &cbPtr, &firstConstant, &numConstants);
+    }
 }

@@ -7,6 +7,7 @@ using Prism.Render.Pipeline;
 using Prism.Render.Pipeline.New;
 using Prism.Render.Pipeline.Old;
 using Prism.Render.SSGI;
+using Prism.Render.Utils;
 using Sandbox.Graphics.GUI;
 using System.IO;
 using System.Reflection;
