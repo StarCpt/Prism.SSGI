@@ -117,17 +117,6 @@ static class OverridePatchFactory
                 il.Emit(OpCodes.Ldarg_1);   // load T* result
                 il.Emit(OpCodes.Ldind_Ref); // deref T* result
             }
-            else if (glueParams[i].Type.IsByRef)
-            {
-                if (i <= byte.MaxValue)
-                {
-                    il.Emit(OpCodes.Ldarga_S, (byte)i);
-                }
-                else
-                {
-                    il.Emit(OpCodes.Ldarga, (ushort)i);
-                }
-            }
             else
             {
                 switch (i)
