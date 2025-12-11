@@ -12,6 +12,8 @@ namespace Prism.Render.Utils;
 /// </summary>
 static class OverridePatchFactory
 {
+    const string BASE_RESULT_PARAM_NAME = "__baseResult";
+
     private static readonly Dictionary<MethodBase, MethodInfo> _baseToOverride = [];
 
     public static void Init(Harmony harmony)
@@ -48,8 +50,7 @@ static class OverridePatchFactory
                 throw new Exception("Base method can't be static.");
             }
 
-            // PLACEHOLDER
-            if (baseMethod.ReturnType != null && baseMethod.ReturnType != typeof(void))
+            if (baseMethod.ReturnType.IsByRef || (baseMethod.ReturnType != typeof(void) && baseMethod.ReturnType.IsValueType))
             {
                 throw new NotImplementedException();
             }
@@ -67,47 +68,56 @@ static class OverridePatchFactory
         }
     }
 
-    private static DynamicMethod Factory(MethodBase baseMethod)
+    private static DynamicMethod Factory(MethodBase baseMethod) // baseMethod is MethodInfo
     {
         MethodInfo overrideMethod = _baseToOverride[baseMethod];
         OverrideOrder order = overrideMethod.GetCustomAttribute<OverrideAttribute>().Order;
 
-        Type baseType = baseMethod.DeclaringType;
-        Type overrideType = overrideMethod.DeclaringType;
-        string glueMethodName = $"{typeof(OverridePatchFactory).FullName}_Override{order}_{baseMethod.DeclaringType.FullName}::{baseMethod.Name}_{overrideMethod.DeclaringType.FullName}::{overrideMethod.Name}";
-
-        List<(Type Type, string Name)> glueParams = [];
-        glueParams.Add((baseType, "__instance"));
-        foreach (ParameterInfo param in baseMethod.GetParameters())
+        if (!ValidateOverrideMethodParameters((MethodInfo)baseMethod, overrideMethod, order))
         {
-            glueParams.Add((param.ParameterType, param.Name));
+            throw new Exception("Invalid override method parameters.");
         }
 
-        Type? returnType = order is OverrideOrder.Replace ? typeof(bool) : null;
+        (Type Type, string Name)[] glueParams = GetGlueMethodParameters((MethodInfo)baseMethod);
 
-        var glueMethod = new DynamicMethod(glueMethodName, returnType, [.. glueParams.Select(i => i.Type)], overrideType.Module, true);
+        string glueMethodName = $"{typeof(OverridePatchFactory).FullName}_Override{order}_{baseMethod.DeclaringType.FullName}::{baseMethod.Name}_{overrideMethod.DeclaringType.FullName}::{overrideMethod.Name}";
+        Type glueReturnType = order is OverrideOrder.Replace ? typeof(bool) : typeof(void);
+        var glueMethod = new DynamicMethod(glueMethodName, glueReturnType, [.. glueParams.Select(i => i.Type)], overrideMethod.Module, true);
 
         // set parameter names
-        foreach (var (param, i) in glueMethod.GetParameters().Select((p, i) => (p, i)))
+        foreach ((ParameterInfo param, int i) in glueMethod.GetParameters().Select((p, i) => (p, i)))
         {
             glueMethod.DefineParameter(i + 1, param.Attributes, glueParams[i].Name); // index starts at 1
         }
 
-        var il = glueMethod.GetILGenerator();
+        ILGenerator il = glueMethod.GetILGenerator();
         il.Emit(OpCodes.Ldarg_0); // load __instance
-        il.Emit(OpCodes.Isinst, overrideType); // check if __instance is overrideType
+        il.Emit(OpCodes.Isinst, overrideMethod.DeclaringType); // check if __instance is overrideType
 
         // result of isinst is either an instance of overrideType or null evaluated to true and false respectively
         // therefore we can skip casting in the "true" branch since we know __instance's type is overrideType
 
         Label brJump = il.DefineLabel();
-        il.Emit(OpCodes.Brfalse_S, brJump);    // branch jump to label if false
+        il.Emit(OpCodes.Brfalse_S, brJump); // branch jump to label if false
 
         // if true
-        // load args for overrideMethod
-        for (int i = 0; i < glueParams.Count; i++)
+        bool overrideHasReturn = overrideMethod.ReturnType != typeof(void);
+        bool overrideHasBaseResultParam = overrideHasReturn && order is OverrideOrder.After;
+
+        if (overrideHasReturn)
         {
-            if (glueParams[i].Type.IsByRef)
+            il.Emit(OpCodes.Ldarg_1); // load T* __result to store overrideMethod result in later
+        }
+
+        // load args for overrideMethod
+        for (int i = 0; i < glueParams.Length; i++)
+        {
+            if (overrideHasBaseResultParam && i == 1)
+            {
+                il.Emit(OpCodes.Ldarg_1);   // load T* result
+                il.Emit(OpCodes.Ldind_Ref); // deref T* result
+            }
+            else if (glueParams[i].Type.IsByRef)
             {
                 if (i <= byte.MaxValue)
                 {
@@ -139,7 +149,13 @@ static class OverridePatchFactory
                 }
             }
         }
+
         il.Emit(OpCodes.Call, overrideMethod); // call override method on __instance
+
+        if (overrideHasReturn)
+        {
+            il.Emit(OpCodes.Stind_Ref); // store return value at addr on stack (T* __result)
+        }
 
         if (order is OverrideOrder.Replace)
         {
@@ -169,5 +185,85 @@ static class OverridePatchFactory
         }
 
         return glueMethod;
+    }
+
+    private static (Type Type, string Name)[] GetGlueMethodParameters(MethodInfo baseMethod)
+    {
+        List<(Type Type, string Name)> glueParams = [];
+        glueParams.Add((baseMethod.DeclaringType, "__instance"));
+
+        if (baseMethod.ReturnType != typeof(void))
+        {
+            glueParams.Add((baseMethod.ReturnType.MakeByRefType(), "__result"));
+        }
+
+        foreach (ParameterInfo param in baseMethod.GetParameters())
+        {
+            glueParams.Add((param.ParameterType, param.Name));
+        }
+
+        return glueParams.ToArray();
+    }
+
+    private static bool ValidateOverrideMethodParameters(MethodInfo baseMethod, MethodInfo overrideMethod, OverrideOrder order)
+    {
+        if (order is OverrideOrder.Replace)
+        {
+            return overrideMethod.ReturnType == baseMethod.ReturnType && EnsureParamsAreSame(baseMethod, overrideMethod, false);
+        }
+        else if (order is OverrideOrder.Before)
+        {
+            return overrideMethod.ReturnType == typeof(void) && EnsureParamsAreSame(baseMethod, overrideMethod, false);
+        }
+        else if (order is OverrideOrder.After)
+        {
+            if (baseMethod.ReturnType != overrideMethod.ReturnType)
+                return false;
+
+            bool hasReturnValue = baseMethod.ReturnType != typeof(void);
+            return EnsureParamsAreSame(baseMethod, overrideMethod, hasReturnValue);
+        }
+        else
+        {
+            throw new ArgumentException(nameof(order));
+        }
+
+        static bool EnsureParamsAreSame(MethodInfo baseMethod, MethodInfo overrideMethod, bool overrideMethodHasBaseResultParam)
+        {
+            ParameterInfo[] baseParams = baseMethod.GetParameters();
+            ParameterInfo[] overrideParams = overrideMethod.GetParameters();
+
+            if (overrideMethodHasBaseResultParam)
+            {
+                // check the [T __baseResult] param
+                ParameterInfo baseResultParam = overrideParams.FirstOrDefault();
+                if (baseResultParam is null ||
+                    baseResultParam.ParameterType != baseMethod.ReturnType ||
+                    baseResultParam.Name != BASE_RESULT_PARAM_NAME)
+                {
+                    return false;
+                }
+
+                overrideParams = [.. overrideParams.Skip(1)];
+            }
+
+            if (baseParams.Length != overrideParams.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < baseParams.Length; i++)
+            {
+                ParameterInfo baseParam = baseParams[i];
+                ParameterInfo overrideParam = overrideParams[i];
+                if (baseParam.ParameterType != overrideParam.ParameterType ||
+                    baseParam.Name != overrideParam.Name)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

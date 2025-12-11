@@ -1,5 +1,4 @@
-﻿using HarmonyLib;
-using Prism.Render.Patches;
+﻿using Prism.Render.Patches;
 using Prism.Render.Utils;
 using SharpDX.Direct3D11;
 using System;
@@ -12,20 +11,6 @@ namespace Prism.Render.Pipeline.Old;
 // even if there's no patches in this class
 public class PrismGBufferPass : MyRenderingPass
 {
-    [HarmonyPatch]
-    static class Patches
-    {
-        [HarmonyPatch(typeof(MyRenderingPass), "Fork")]
-        [HarmonyPostfix]
-        public static void Fork_Postfix(MyRenderingPass __instance, ref MyRenderingPass __result)
-        {
-            if (__instance is PrismGBufferPass @this)
-            {
-                @this.Fork(ref __result);
-            }
-        }
-    }
-
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public MyGBuffer GBuffer;
     public IRtvTexture VelocityBuffer;
@@ -179,11 +164,12 @@ public class PrismGBufferPass : MyRenderingPass
         VelocityBuffer = null!;
     }
 
-    public void Fork(ref MyRenderingPass result)
+    [OverrideAfter]
+    public MyRenderingPass Fork(MyRenderingPass __baseResult)
     {
-        PrismGBufferPass clone = (PrismGBufferPass)result; //PrismGBufferPass clone = (PrismGBufferPass)base.Fork();
+        PrismGBufferPass clone = (PrismGBufferPass)__baseResult; //PrismGBufferPass clone = (PrismGBufferPass)base.Fork();
         clone.GBuffer = GBuffer;
         clone.VelocityBuffer = VelocityBuffer;
-        //return clone;
+        return clone;
     }
 }
