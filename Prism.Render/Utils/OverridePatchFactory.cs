@@ -9,6 +9,7 @@ namespace Prism.Render.Utils;
 
 /// <summary>
 /// Helper class to simplify overriding non-virtual or nonaccessible instance methods.
+/// Doesn't work if the JIT compiler inlines the target method
 /// </summary>
 static class OverridePatchFactory
 {

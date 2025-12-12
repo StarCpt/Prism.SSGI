@@ -1,5 +1,6 @@
 ﻿using HarmonyLib;
 using Prism.Maths;
+using Prism.Render.Utils;
 using System;
 using System.Runtime.CompilerServices;
 using VRage.Render11.Culling;
@@ -47,29 +48,6 @@ public class PrismRenderableProxy : MyRenderableProxy
         static unsafe void MyRenderableComponent_GetConstantBufferSize_Postfix(ref int __result)
         {
             __result += sizeof(float3x4);
-        }
-
-        [HarmonyPatch(typeof(MyRenderableProxy), nameof(MyRenderableProxy.UpdateObjectBuffer), [ typeof(MyMapping) ], [ ArgumentType.Ref ])]
-        [HarmonyPostfix]
-        static unsafe void MyRenderableProxy_UpdateObjectBuffer_Postfix(MyRenderableProxy __instance, ref MyMapping mapping)
-        {
-            var renderableProxy = (PrismRenderableProxy)__instance;
-            if (__instance.SkinningMatrices != null)
-            {
-                int skinningMatricesWritten = __instance.DrawSubmesh.BonesMapping == null ? Math.Min(60, __instance.SkinningMatrices.Length) : __instance.DrawSubmesh.BonesMapping.Length;
-                int bytesToOffset = (60 - skinningMatricesWritten) * sizeof(Matrix);
-                mapping.Offset(bytesToOffset);
-            }
-            mapping.WriteAndPosition(ref renderableProxy.PrevMatrix);
-        }
-
-        [HarmonyPatch(typeof(MyRenderableProxy), nameof(MyRenderableProxy.Clear))]
-        [HarmonyPostfix]
-        static unsafe void MyRenderableProxy_Clear_Postfix(MyRenderableProxy __instance)
-        {
-            var proxy = (PrismRenderableProxy)__instance;
-            proxy.PrismGBufferShaders = MyMaterialShadersBundleId.NULL;
-            proxy.PrevMatrix = default;
         }
 
         [HarmonyPatch(typeof(MyCullProxy), nameof(MyCullProxy.UpdateWorldMatrix))]
@@ -164,6 +142,25 @@ public class PrismRenderableProxy : MyRenderableProxy
 
     public MyMaterialShadersBundleId PrismGBufferShaders;
     public RowMatrix PrevMatrix; // float4x3
+
+    [OverrideAfter]
+    public new void Clear()
+    {
+        PrismGBufferShaders = MyMaterialShadersBundleId.NULL;
+        PrevMatrix = default;
+    }
+
+    [OverrideAfter]
+    public unsafe new void UpdateObjectBuffer(ref MyMapping mapping)
+    {
+        if (SkinningMatrices != null)
+        {
+            int skinningMatricesWritten = DrawSubmesh.BonesMapping == null ? Math.Min(60, SkinningMatrices.Length) : DrawSubmesh.BonesMapping.Length;
+            int bytesToOffset = (60 - skinningMatricesWritten) * sizeof(Matrix);
+            mapping.Offset(bytesToOffset);
+        }
+        mapping.WriteAndPosition(ref PrevMatrix);
+    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void UpdatePrevMatrix()
