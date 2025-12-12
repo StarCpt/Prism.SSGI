@@ -27,6 +27,11 @@ static class OverridePatchFactory
                 throw new Exception("Override method can't be static.");
             }
 
+            if (overrideMethod.ContainsGenericParameters || overrideMethod.IsGenericMethod)
+            {
+                throw new NotImplementedException();
+            }
+
             OverrideOrder order = overrideMethod.GetCustomAttribute<OverrideAttribute>().Order;
             if (order is not OverrideOrder.Replace and not OverrideOrder.Before and not OverrideOrder.After)
             {
@@ -39,10 +44,17 @@ static class OverridePatchFactory
                 throw new Exception("Base class not found.");
             }
 
-            MethodInfo baseMethod = AccessTools.Method(baseType, overrideMethod.Name);
+            MethodInfo baseMethod = AccessTools.Method(baseType, overrideMethod.Name, GetBaseMethodParameters(overrideMethod));
             if (baseMethod is null)
             {
-                throw new Exception("Base method not found.");
+                if (AccessTools.Method(baseType, overrideMethod.Name) != null)
+                {
+                    throw new Exception("Base method parameter mismatch.");
+                }
+                else
+                {
+                    throw new Exception("Base method not found.");
+                }
             }
 
             if (baseMethod.IsStatic)
@@ -66,6 +78,18 @@ static class OverridePatchFactory
                 harmony.Patch(baseMethod, postfix: new HarmonyMethod(Factory));
             }
         }
+    }
+
+    private static Type[] GetBaseMethodParameters(MethodInfo overrideMethod)
+    {
+        ParameterInfo[] overrideParams = overrideMethod.GetParameters();
+
+        if (overrideParams.FirstOrDefault()?.Name is "__baseResult")
+        {
+            overrideParams = [.. overrideParams.Skip(1)];
+        }
+
+        return [.. overrideParams.Select(i => i.ParameterType)];
     }
 
     private static DynamicMethod Factory(MethodBase baseMethod) // baseMethod is MethodInfo
