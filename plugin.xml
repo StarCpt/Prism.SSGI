@@ -20,10 +20,6 @@ Sampling is based on the SSILVB algorithm with a modified SVGF denoiser for deno
     <Directory>Prism.Common</Directory>
   </SourceDirectories>
 
-  <NuGetReferences>
-    <PackageReference Include="System.Reflection.Emit.Lightweight" Version="4.7.0" />
-  </NuGetReferences>
-
   <AssetFolder>Prism.Render/Shaders/</AssetFolder>
 
 </PluginData>
