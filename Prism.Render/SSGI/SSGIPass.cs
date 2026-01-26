@@ -217,7 +217,7 @@ public static class SSGIPass
         if (_compileError || !Plugin.SSGIConfig.Enabled)
             return;
 
-        if (Plugin.IsCameraLcdDrawing || Plugin.IsTargetCameraDrawing)
+        if (Plugin.IsRendererHijacked)
             return;
 
         UpdateCbv(rc, 0, true);

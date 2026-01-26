@@ -38,6 +38,7 @@ public static class Patch_MyRenderScheduler
 
     private static readonly Func<bool> _cameraLcdActive;
     private static readonly Func<bool> _targetCameraActive;
+    private static readonly Func<bool> _targetViewActive;
 
     static Patch_MyRenderScheduler()
     {
@@ -77,6 +78,23 @@ public static class Patch_MyRenderScheduler
             _targetCameraActive = FalseGetter;
         }
 
+        try
+        {
+            if (AccessTools.TypeByName("TargetView.TargetViewRenderer") is Type type &&
+                AccessTools.PropertyGetter(type, "IsDrawing") is MethodInfo propGetter && propGetter.ReturnType == typeof(bool))
+            {
+                _targetViewActive = propGetter.CreateDelegate<Func<bool>>();
+            }
+            else
+            {
+                _targetViewActive = FalseGetter;
+            }
+        }
+        catch
+        {
+            _targetViewActive = FalseGetter;
+        }
+
         static bool FalseGetter() => false;
     }
 
@@ -84,10 +102,9 @@ public static class Patch_MyRenderScheduler
     [HarmonyPrefix]
     static void Init_Prefix()
     {
-        Plugin.IsCameraLcdDrawing = _cameraLcdActive();
-        Plugin.IsTargetCameraDrawing = _targetCameraActive();
+        Plugin.IsRendererHijacked = _cameraLcdActive() || _targetCameraActive() || _targetViewActive();
 
-        if (Plugin.IsCameraLcdDrawing || Plugin.IsTargetCameraDrawing)
+        if (Plugin.IsRendererHijacked)
             return;
 
         using (BufferMapping mapping = _prevMatricesCbv.MapWriteDiscard())
@@ -107,7 +124,7 @@ public static class Patch_MyRenderScheduler
     [HarmonyPostfix]
     static void Done_Postfix()
     {
-        if (Plugin.IsCameraLcdDrawing || Plugin.IsTargetCameraDrawing)
+        if (Plugin.IsRendererHijacked)
             return;
 
         // update MyRenderableProxy previous matrices

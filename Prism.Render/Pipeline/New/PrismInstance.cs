@@ -15,7 +15,7 @@ public class PrismInstance : MyInstance
         [HarmonyPostfix]
         static unsafe void MyPreparePass_PrismColorPreparePass0_MyColorPreparePass1_Perform_Postfix(MyList<MyInstance> ___m_visibleInstances)
         {
-            if (Plugin.IsCameraLcdDrawing || Plugin.IsTargetCameraDrawing)
+            if (Plugin.IsRendererHijacked)
                 return;
 
             // all MyInstance objects's real type *should* be PrismInstance but this is still sketchy
