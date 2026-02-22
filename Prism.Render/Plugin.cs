@@ -49,6 +49,7 @@ public class Plugin : IPlugin
     {
         MyManagers.Instances.m_instances.ChangeObjectType<MyInstance, PrismInstance>();
         MyObjectPoolManager.m_poolsByType[typeof(MyRenderableProxy)].ChangeObjectType<MyRenderableProxy, PrismRenderableProxy>();
+        MyObjectPoolManager.m_poolsByType[typeof(PrismRenderableProxy)] = MyObjectPoolManager.m_poolsByType[typeof(MyRenderableProxy)];
 
         MyObjectPoolManager.RegisterPool(typeof(PrismGBufferPass));
         MyObjectPoolManager.RegisterPool(typeof(PrismGBufferRenderPass));
